@@ -264,6 +264,13 @@ class SpotROS():
         resp = self.spot_wrapper.stand()
         return TriggerResponse(resp[0], resp[1])
 
+    def handle_dock(self, req):
+        resp = self.spot_wrapper.handle_dock()
+        return TriggerResponse(resp[0], resp[1])
+
+    def handle_undock(self, req):
+        resp = self.spot_wrapper.handle_undock()
+        return TriggerResponse(resp[0], resp[1])
     def handle_power_on(self, req):
         """ROS service handler for the power-on service"""
         resp = self.spot_wrapper.power_on()
@@ -578,6 +585,8 @@ class SpotROS():
             rospy.Service("self_right", Trigger, self.handle_self_right)
             rospy.Service("sit", Trigger, self.handle_sit)
             rospy.Service("stand", Trigger, self.handle_stand)
+            rospy.Service("dock", Trigger, self.handle_dock)
+            rospy.Service("undock", Trigger, self.handle_undock)
             rospy.Service("power_on", Trigger, self.handle_power_on)
             rospy.Service("power_off", Trigger, self.handle_safe_power_off)
 

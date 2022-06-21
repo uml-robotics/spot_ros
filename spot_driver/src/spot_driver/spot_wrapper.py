@@ -4,15 +4,15 @@ import math
 from bosdyn.client import create_standard_sdk, ResponseError, RpcError
 from bosdyn.client.async_tasks import AsyncPeriodicQuery, AsyncTasks
 from bosdyn.geometry import EulerZXY
-
+from bosdyn.client.docking import blocking_dock_robot, blocking_undock
 from bosdyn.client.robot_state import RobotStateClient
-from bosdyn.client.robot_command import RobotCommandClient, RobotCommandBuilder
+from bosdyn.client.robot_command import RobotCommandClient, RobotCommandBuilder, CommandFailedError
 from bosdyn.client.graph_nav import GraphNavClient
 from bosdyn.client.frame_helpers import get_odom_tform_body
 from bosdyn.client.power import safe_power_off, PowerClient, power_on
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.image import ImageClient, build_image_request
-from bosdyn.api import image_pb2
+from bosdyn.api import image_pb2, robot_state_pb2
 from bosdyn.api.graph_nav import graph_nav_pb2
 from bosdyn.api.graph_nav import map_pb2
 from bosdyn.api.graph_nav import nav_pb2
@@ -522,6 +522,20 @@ class SpotWrapper():
         if monitor_command:
             self._last_stand_command = response[2]
         return response[0], response[1]
+
+    def undock(self):
+        try:
+            blocking_undock(self._robot)
+        except CommandFailedError:
+            return False, "Undocking failed"
+        return True, "Undocking Succeeded"
+
+    def dock(self):
+        try:
+            blocking_dock_robot(self._robot, 520)
+        except CommandFailedError:
+            return False, "Docking failed"
+        return True, "Docking Succeeded!"
 
     def safe_power_off(self):
         """Stop the robot's motion and sit if possible.  Once sitting, disable motor power."""
