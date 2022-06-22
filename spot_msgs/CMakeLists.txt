@@ -41,6 +41,7 @@ add_service_files(
   SetVelocity.srv
   ClearBehaviorFault.srv
   ListTaggedObjects.srv
+  GetObjectPose.srv
 )
 
 add_action_files(

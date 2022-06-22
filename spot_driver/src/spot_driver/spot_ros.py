@@ -6,7 +6,7 @@ from tf2_msgs.msg import TFMessage
 from geometry_msgs.msg import TransformStamped
 from sensor_msgs.msg import Image, CameraInfo
 from sensor_msgs.msg import JointState
-from geometry_msgs.msg import TwistWithCovarianceStamped, Twist, Pose
+from geometry_msgs.msg import TwistWithCovarianceStamped, Twist, PoseStamped, Pose
 from nav_msgs.msg import Odometry
 
 from bosdyn.api.spot import robot_command_pb2 as spot_command_pb2
@@ -36,6 +36,7 @@ from spot_msgs.srv import SetLocomotion, SetLocomotionResponse
 from spot_msgs.srv import ClearBehaviorFault, ClearBehaviorFaultResponse
 from spot_msgs.srv import SetVelocity, SetVelocityResponse
 from spot_msgs.srv import ListTaggedObjects, ListTaggedObjectsResponse
+from spot_msgs.srv import GetObjectPose, GetObjectPoseResponse
 
 from .ros_helpers import *
 from .spot_wrapper import SpotWrapper
@@ -350,6 +351,25 @@ class SpotROS():
         resp.waypoint_ids = object_ids
         return resp
 
+    def handle_get_tagged_object_pose(self, req):
+        resp = self.spot_wrapper.get_object_pose(req.id)
+        if (resp[0]):
+            # convert SE2 Pose to pose (move to helper function plz future jacob)
+            p = PoseStamped()
+            p.header.frame_id = "odom"
+            p.pose.position.x = resp[1].position.x
+            p.pose.position.y = resp[1].position.y
+            p.pose.position.z = resp[1].position.z
+            p.pose.orientation.x = resp[1].rotation.x
+            p.pose.orientation.y = resp[1].rotation.y
+            p.pose.orientation.z = resp[1].rotation.z
+            p.pose.orientation.w = resp[1].rotation.w
+            return GetObjectPoseResponse(resp[0], "success!", p)
+        r = GetObjectPoseResponse()
+        r.success = False
+        r.message = "Unable to find object with fiducial ID " + req.id
+        return r
+
     def handle_trajectory(self, req):
         """ROS actionserver execution handler to handle receiving a request to move to a location"""
         if req.target_pose.header.frame_id != 'body':
@@ -606,7 +626,8 @@ class SpotROS():
             rospy.Service("max_velocity", SetVelocity, self.handle_max_vel)
             rospy.Service("clear_behavior_fault", ClearBehaviorFault, self.handle_clear_behavior_fault)
 
-            rospy.Service("list_tagged_objects", Trigger, self.handle_list_tagged_objects)
+            rospy.Service("list_tagged_objects", ListTaggedObjects, self.handle_list_tagged_objects)
+            rospy.Service("get_object_pose", GetObjectPose, self.handle_get_tagged_object_pose)
             rospy.Service("list_graph", ListGraph, self.handle_list_graph)
 
             self.navigate_as = actionlib.SimpleActionServer('navigate_to', NavigateToAction,

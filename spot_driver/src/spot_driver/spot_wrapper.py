@@ -9,7 +9,7 @@ from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.robot_command import RobotCommandClient, RobotCommandBuilder, CommandFailedError
 from bosdyn.client.graph_nav import GraphNavClient
 from bosdyn.client.world_object import WorldObjectClient
-from bosdyn.client.frame_helpers import get_odom_tform_body
+from bosdyn.client.frame_helpers import get_odom_tform_body, get_a_tform_b
 from bosdyn.client.power import safe_power_off, PowerClient, power_on
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.image import ImageClient, build_image_request
@@ -567,7 +567,20 @@ class SpotWrapper():
         for world_obj in world_objects:
             tagged_object_ids.append(str(world_obj.id))
         return tagged_object_ids
-    
+
+    def get_object_pose(self, id):
+        world_objects = self._world_object_client.list_world_objects().world_objects
+        for world_object in world_objects:
+            if id == str(world_object.id):
+                # Get the transform snapshot for the world object
+                snapshot = world_object.transforms_snapshot
+                # Get the frame name for the fiducial of the object
+                fiducial_frame = world_object.apriltag_properties.frame_name_fiducial
+                # get the location of the fiducial in the odom frame
+                odom_tform_fiducial = get_a_tform_b(snapshot, "/odom", fiducial_frame)
+                return True, odom_tform_fiducial
+        return False
+
     def set_mobility_params(self, mobility_params):
         """Set Params for mobility and movement
 
