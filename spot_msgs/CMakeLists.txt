@@ -40,6 +40,7 @@ add_service_files(
   SetLocomotion.srv
   SetVelocity.srv
   ClearBehaviorFault.srv
+  ListTaggedObjects.srv
 )
 
 add_action_files(

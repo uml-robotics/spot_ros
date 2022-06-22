@@ -35,6 +35,7 @@ from spot_msgs.srv import ListGraph, ListGraphResponse
 from spot_msgs.srv import SetLocomotion, SetLocomotionResponse
 from spot_msgs.srv import ClearBehaviorFault, ClearBehaviorFaultResponse
 from spot_msgs.srv import SetVelocity, SetVelocityResponse
+from spot_msgs.srv import ListTaggedObjects, ListTaggedObjectsResponse
 
 from .ros_helpers import *
 from .spot_wrapper import SpotWrapper
@@ -343,6 +344,12 @@ class SpotROS():
         except Exception as e:
             return SetVelocityResponse(False, 'Error:{}'.format(e))
 
+    def handle_list_tagged_objects(self, req):
+        object_ids = self.spot_wrapper.list_tagged_objects()
+        resp = ListTaggedObjectsResponse()
+        resp.waypoint_ids = object_ids
+        return resp
+
     def handle_trajectory(self, req):
         """ROS actionserver execution handler to handle receiving a request to move to a location"""
         if req.target_pose.header.frame_id != 'body':
@@ -599,6 +606,7 @@ class SpotROS():
             rospy.Service("max_velocity", SetVelocity, self.handle_max_vel)
             rospy.Service("clear_behavior_fault", ClearBehaviorFault, self.handle_clear_behavior_fault)
 
+            rospy.Service("list_tagged_objects", Trigger, self.handle_list_tagged_objects)
             rospy.Service("list_graph", ListGraph, self.handle_list_graph)
 
             self.navigate_as = actionlib.SimpleActionServer('navigate_to', NavigateToAction,

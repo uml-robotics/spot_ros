@@ -8,11 +8,12 @@ from bosdyn.client.docking import blocking_dock_robot, blocking_undock
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.robot_command import RobotCommandClient, RobotCommandBuilder, CommandFailedError
 from bosdyn.client.graph_nav import GraphNavClient
+from bosdyn.client.world_object import WorldObjectClient
 from bosdyn.client.frame_helpers import get_odom_tform_body
 from bosdyn.client.power import safe_power_off, PowerClient, power_on
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.image import ImageClient, build_image_request
-from bosdyn.api import image_pb2, robot_state_pb2
+from bosdyn.api import image_pb2, robot_state_pb2, world_object_pb2
 from bosdyn.api.graph_nav import graph_nav_pb2
 from bosdyn.api.graph_nav import map_pb2
 from bosdyn.api.graph_nav import nav_pb2
@@ -264,6 +265,7 @@ class SpotWrapper():
                 self._robot_state_client = self._robot.ensure_client(RobotStateClient.default_service_name)
                 self._robot_command_client = self._robot.ensure_client(RobotCommandClient.default_service_name)
                 self._graph_nav_client = self._robot.ensure_client(GraphNavClient.default_service_name)
+                self._world_object_client = self._robot.ensure_client(WorldObjectClient.default_service_name)
                 self._power_client = self._robot.ensure_client(PowerClient.default_service_name)
                 self._lease_client = self._robot.ensure_client(LeaseClient.default_service_name)
                 self._lease_wallet = self._lease_client.lease_wallet
@@ -558,6 +560,14 @@ class SpotWrapper():
         except Exception as e:
             return False, str(e)
 
+    def list_tagged_objects(self):
+        request_fiducials = [world_object_pb2.WORLD_OBJECT_APRILTAG]
+        world_objects = self._world_object_client.list_world_objects(object_type=request_fiducials).world_objects
+        tagged_object_ids = []
+        for world_obj in world_objects:
+            tagged_object_ids.append(str(world_obj.id))
+        return tagged_object_ids
+    
     def set_mobility_params(self, mobility_params):
         """Set Params for mobility and movement
 
@@ -751,7 +761,6 @@ class SpotWrapper():
         self._current_annotation_name_to_wp_id, self._current_edges = graph_nav_util.update_waypoints_and_edges(
             graph, localization_id, self._logger)
         return self._current_annotation_name_to_wp_id, self._current_edges
-
 
     def _upload_graph_and_snapshots(self, upload_filepath):
         """Upload the graph and snapshots to the robot."""
