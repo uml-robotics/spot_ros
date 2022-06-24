@@ -267,11 +267,11 @@ class SpotROS():
         return TriggerResponse(resp[0], resp[1])
 
     def handle_dock(self, req):
-        resp = self.spot_wrapper.handle_dock()
+        resp = self.spot_wrapper.dock()
         return TriggerResponse(resp[0], resp[1])
 
     def handle_undock(self, req):
-        resp = self.spot_wrapper.handle_undock()
+        resp = self.spot_wrapper.undock()
         return TriggerResponse(resp[0], resp[1])
     def handle_power_on(self, req):
         """ROS service handler for the power-on service"""
