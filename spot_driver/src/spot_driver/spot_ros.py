@@ -35,6 +35,11 @@ from spot_msgs.srv import ListGraph, ListGraphResponse
 from spot_msgs.srv import SetLocomotion, SetLocomotionResponse
 from spot_msgs.srv import ClearBehaviorFault, ClearBehaviorFaultResponse
 from spot_msgs.srv import SetVelocity, SetVelocityResponse
+from spot_msgs.srv import ArmJointMovement, ArmJointMovementResponse, ArmJointMovementRequest
+from spot_msgs.srv import GripperAngleMove, GripperAngleMoveResponse, GripperAngleMoveRequest
+from spot_msgs.srv import ArmForceTrajectory, ArmForceTrajectoryResponse, ArmForceTrajectoryRequest
+from spot_msgs.srv import HandPose, HandPoseResponse, HandPoseRequest
+
 
 from .ros_helpers import *
 from .spot_wrapper import SpotWrapper
@@ -57,6 +62,7 @@ class SpotROS():
         self.callbacks["front_image"] = self.FrontImageCB
         self.callbacks["side_image"] = self.SideImageCB
         self.callbacks["rear_image"] = self.RearImageCB
+        self.callbacks["hand_image"] = self.HandImageCB
 
     def RobotStateCB(self, results):
         """Callback for when the Spot Wrapper gets new robot state data.
@@ -233,6 +239,32 @@ class SpotROS():
 
             self.populate_camera_static_transforms(data[0])
             self.populate_camera_static_transforms(data[1])
+            
+    def HandImageCB(self, results):
+        """Callback for when the Spot Wrapper gets new hand image data.
+
+        Args:
+            results: FutureWrapper object of AsyncPeriodicQuery callback
+        """
+        data = self.spot_wrapper.hand_images
+        if data:
+            mage_msg0, camera_info_msg0 = getImageMsg(data[0], self.spot_wrapper)
+            self.hand_image_mono_pub.publish(mage_msg0)
+            self.hand_image_mono_info_pub.publish(camera_info_msg0)
+            mage_msg1, camera_info_msg1 = getImageMsg(data[1], self.spot_wrapper)
+            self.hand_depth_pub.publish(mage_msg1)
+            self.hand_depth_info_pub.publish(camera_info_msg1)
+            image_msg2, camera_info_msg2 = getImageMsg(data[2], self.spot_wrapper)
+            self.hand_image_color_pub.publish(image_msg2)
+            self.hand_image_color_info_pub.publish(camera_info_msg2)
+            image_msg3, camera_info_msg3 = getImageMsg(data[3], self.spot_wrapper)
+            self.hand_depth_in_hand_color_pub.publish(image_msg3)
+            self.hand_depth_in_color_info_pub.publish(camera_info_msg3)
+
+            self.populate_camera_static_transforms(data[0])
+            self.populate_camera_static_transforms(data[1])
+            self.populate_camera_static_transforms(data[2])
+            self.populate_camera_static_transforms(data[3])
 
     def handle_claim(self, req):
         """ROS service handler for the claim service"""
@@ -480,6 +512,68 @@ class SpotROS():
             self.camera_static_transforms.append(static_tf)
             self.camera_static_transform_broadcaster.sendTransform(self.camera_static_transforms)
 
+    # Arm functions ##################################################
+    def handle_arm_stow(self, srv_data):
+        """ROS service handler to command the arm to stow, home position """
+        resp = self.spot_wrapper.arm_stow()
+        return TriggerResponse(resp[0], resp[1])
+
+    def handle_arm_unstow(self, srv_data):
+        """ROS service handler to command the arm to unstow, joints are all zeros"""
+        resp = self.spot_wrapper.arm_unstow()
+        return TriggerResponse(resp[0], resp[1])
+
+    def handle_arm_joint_move(self, srv_data: ArmJointMovementRequest):
+        """ROS service handler to send joint movement to the arm to execute"""        
+        resp = self.spot_wrapper.arm_joint_move(joint_targets = srv_data.joint_target)
+        return ArmJointMovementResponse(resp[0], resp[1])
+    
+    def handle_force_trajectory(self, srv_data: ArmForceTrajectoryRequest):
+        """ROS service handler to send a force trajectory up or down a vertical force"""
+        resp = self.spot_wrapper.force_trajectory(forces_torques = srv_data.force_torque)
+        return ArmForceTrajectoryResponse(resp[0], resp[1])
+    
+    def handle_gripper_open(self, srv_data):
+        """ROS service handler to open the gripper"""
+        resp = self.spot_wrapper.gripper_open()
+        return TriggerResponse(resp[0], resp[1])
+
+    def handle_gripper_close(self, srv_data):
+        """ROS service handler to close the gripper"""
+        resp = self.spot_wrapper.gripper_close()
+        return TriggerResponse(resp[0], resp[1])    
+    
+    def handle_gripper_angle_open(self, srv_data: GripperAngleMoveRequest):
+        """ROS service handler to open the gripper at an angle"""
+        resp = self.spot_wrapper.gripper_angle_open(gripper_ang = srv_data.gripper_angle)
+        return GripperAngleMoveResponse(resp[0], resp[1])
+    
+    def handle_arm_carry(self, srv_data):
+        """ROS service handler to put arm in carry mode"""
+        resp = self.spot_wrapper.arm_carry()
+        return TriggerResponse(resp[0], resp[1])
+    
+    def handle_body_follow_arm(self, srv_data):
+        """ROS service to send a pose to the end effector"""
+        resp = self.spot_wrapper.hand_position_3d()
+        return TriggerResponse(resp[0], resp[1])
+    
+    def handle_hand_pose(self, srv_data: HandPoseRequest):
+        """ROS service to give a position to the gripper"""
+        resp = self.spot_wrapper.hand_pose(pose_points = srv_data.pose_point)
+        return HandPoseResponse(resp[0], resp[1])
+    
+    def walk_to_obj_callback(self, obj_point):
+        """Callback for pixel points, object to walk"""
+        rospy.loginfo("Pixel for location to walk to: " + str(obj_point))
+        the_click = []
+        the_click.append(obj_point.pixel_pose[0])
+        the_click.append(obj_point.pixel_pose[1])
+        self.spot_wrapper.walk_to_object_image(object_point = the_click)
+
+
+    ##################################################################
+    
     def shutdown(self):
         rospy.loginfo("Shutting down ROS driver for Spot")
         self.spot_wrapper.sit()
@@ -529,12 +623,19 @@ class SpotROS():
             self.frontright_image_pub = rospy.Publisher('camera/frontright/image', Image, queue_size=10)
             self.left_image_pub = rospy.Publisher('camera/left/image', Image, queue_size=10)
             self.right_image_pub = rospy.Publisher('camera/right/image', Image, queue_size=10)
+            self.hand_image_mono_pub = rospy.Publisher('camera/hand_mono/image', Image, queue_size=10)
+            self.hand_image_color_pub = rospy.Publisher('camera/hand_color/image', Image, queue_size=10)
+
             # Depth #
             self.back_depth_pub = rospy.Publisher('depth/back/image', Image, queue_size=10)
             self.frontleft_depth_pub = rospy.Publisher('depth/frontleft/image', Image, queue_size=10)
             self.frontright_depth_pub = rospy.Publisher('depth/frontright/image', Image, queue_size=10)
             self.left_depth_pub = rospy.Publisher('depth/left/image', Image, queue_size=10)
             self.right_depth_pub = rospy.Publisher('depth/right/image', Image, queue_size=10)
+            self.hand_depth_pub = rospy.Publisher('depth/hand/image', Image, queue_size=10)
+            self.hand_depth_in_hand_color_pub = rospy.Publisher('depth/hand/depth_in_color', Image, queue_size=10)
+            self.frontleft_depth_in_visual_pub = rospy.Publisher('depth/frontleft/depth_in_visual', Image, queue_size=10)
+            self.frontright_depth_in_visual_pub = rospy.Publisher('depth/frontright/depth_in_visual', Image, queue_size=10)
 
             # Image Camera Info #
             self.back_image_info_pub = rospy.Publisher('camera/back/camera_info', CameraInfo, queue_size=10)
@@ -542,12 +643,20 @@ class SpotROS():
             self.frontright_image_info_pub = rospy.Publisher('camera/frontright/camera_info', CameraInfo, queue_size=10)
             self.left_image_info_pub = rospy.Publisher('camera/left/camera_info', CameraInfo, queue_size=10)
             self.right_image_info_pub = rospy.Publisher('camera/right/camera_info', CameraInfo, queue_size=10)
+            self.hand_image_mono_info_pub = rospy.Publisher('camera/hand_mono/camera_info', CameraInfo, queue_size=10)
+            self.hand_image_color_info_pub = rospy.Publisher('camera/hand_color/camera_info', CameraInfo, queue_size=10)
+            
             # Depth Camera Info #
             self.back_depth_info_pub = rospy.Publisher('depth/back/camera_info', CameraInfo, queue_size=10)
             self.frontleft_depth_info_pub = rospy.Publisher('depth/frontleft/camera_info', CameraInfo, queue_size=10)
             self.frontright_depth_info_pub = rospy.Publisher('depth/frontright/camera_info', CameraInfo, queue_size=10)
             self.left_depth_info_pub = rospy.Publisher('depth/left/camera_info', CameraInfo, queue_size=10)
             self.right_depth_info_pub = rospy.Publisher('depth/right/camera_info', CameraInfo, queue_size=10)
+            self.hand_depth_info_pub = rospy.Publisher('depth/hand/camera_info', CameraInfo, queue_size=10)
+            self.hand_depth_in_color_info_pub = rospy.Publisher('camera/hand/depth_in_color/camera_info', CameraInfo, queue_size=10)
+            self.frontleft_depth_in_visual_info_pub = rospy.Publisher('depth/frontleft/depth_in_visual/camera_info', CameraInfo, queue_size=10)
+            self.frontright_depth_in_visual_info_pub = rospy.Publisher('depth/frontright/depth_in_visual/camera_info', CameraInfo, queue_size=10)
+
 
             # Status Publishers #
             self.joint_state_pub = rospy.Publisher('joint_states', JointState, queue_size=10)
@@ -571,6 +680,9 @@ class SpotROS():
 
             rospy.Subscriber('cmd_vel', Twist, self.cmdVelCallback, queue_size = 1)
             rospy.Subscriber('body_pose', Pose, self.bodyPoseCallback, queue_size = 1)
+            
+            # Walk to an object
+            rospy.Subscriber('object_location', PixelPose, self.walk_to_obj_callback, queue_size=1)
 
             rospy.Service("claim", Trigger, self.handle_claim)
             rospy.Service("release", Trigger, self.handle_release)
@@ -591,6 +703,19 @@ class SpotROS():
             rospy.Service("clear_behavior_fault", ClearBehaviorFault, self.handle_clear_behavior_fault)
 
             rospy.Service("list_graph", ListGraph, self.handle_list_graph)
+
+            # Arm Services #########################################
+            rospy.Service("arm_stow", Trigger, self.handle_arm_stow)
+            rospy.Service("arm_unstow", Trigger, self.handle_arm_unstow)
+            rospy.Service("gripper_open", Trigger, self.handle_gripper_open)
+            rospy.Service("gripper_close", Trigger, self.handle_gripper_close)
+            rospy.Service("arm_carry", Trigger, self.handle_arm_carry)
+            rospy.Service("gripper_angle_open", GripperAngleMove, self.handle_gripper_angle_open)
+            rospy.Service("arm_joint_move", ArmJointMovement, self.handle_arm_joint_move)
+            rospy.Service("force_trajectory", ArmForceTrajectory, self.handle_force_trajectory)
+            rospy.Service("body_follow_hand", Trigger, self.handle_body_follow_arm)
+            rospy.Service("gripper_pose", HandPose, self.handle_hand_pose)
+            #########################################################
 
             self.navigate_as = actionlib.SimpleActionServer('navigate_to', NavigateToAction,
                                                             execute_cb = self.handle_navigate_to,

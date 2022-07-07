@@ -40,6 +40,11 @@ add_service_files(
   SetLocomotion.srv
   SetVelocity.srv
   ClearBehaviorFault.srv
+  ArmJointMovement.srv
+  ConstrainedArmJointMovement.srv
+  GripperAngleMove.srv
+  ArmForceTrajectory.srv
+  HandPose.srv
 )
 
 add_action_files(
