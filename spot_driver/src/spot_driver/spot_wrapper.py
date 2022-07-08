@@ -629,9 +629,9 @@ class SpotWrapper():
 
         # transform into footprint frame:
         transforms = self._robot_state_client.get_robot_state().kinematic_state.transforms_snapshot
-        footprint_tform_body = get_a_tform_b(transforms, "footprint", "body")
-        body_tform_goal = math_helpers.SE3Pose(x=0, y=0, z=goal_z, rot=goal_rotation)
-        footprint_tform_goal = footprint_tform_body * body_tform_goal
+        footprint_tform_odom = get_a_tform_b(transforms, "footprint", "odom")
+        odom_tform_goal = math_helpers.SE3Pose(x=0, y=0, z=goal_z, rot=goal_rotation)
+        footprint_tform_goal = footprint_tform_odom * odom_tform_goal
         response = self._robot_command(
             RobotCommandBuilder.synchro_stand_command(body_height=footprint_tform_goal.z,
                                                       footprint_R_body=footprint_tform_goal.rotation),

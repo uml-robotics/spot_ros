@@ -371,8 +371,8 @@ class SpotROS():
         return r
 
     def handle_body_pose(self, req):
-        if req.target_pose.header.frame_id != 'body':
-            self.trajectory_server.set_aborted(TrajectoryResult(False, 'frame_id of target_pose must be \'body\''))
+        if req.target_pose.header.frame_id != 'odom':
+            self.trajectory_server.set_aborted(TrajectoryResult(False, 'frame_id of target_pose must be \'odom\''))
             return
         if req.duration.data.to_sec() <= 0:
             self.trajectory_server.set_aborted(TrajectoryResult(False, 'duration must be larger than 0'))
