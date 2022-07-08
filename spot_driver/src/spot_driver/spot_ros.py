@@ -689,6 +689,7 @@ class SpotROS():
             rospy.Service("list_graph", ListGraph, self.handle_list_graph)
 
             self.body_pose_as = actionlib.SimpleActionServer('body_pose', TrajectoryAction, execute_cb = self.handle_body_pose, auto_start=False)
+            self.body_pose_as.start()
             self.navigate_as = actionlib.SimpleActionServer('navigate_to', NavigateToAction,
                                                             execute_cb = self.handle_navigate_to,
                                                             auto_start = False)

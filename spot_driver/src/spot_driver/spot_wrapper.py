@@ -1,6 +1,7 @@
 import time
 import math
 
+import rospy
 from bosdyn.client import create_standard_sdk, ResponseError, RpcError
 from bosdyn.client.async_tasks import AsyncPeriodicQuery, AsyncTasks
 from bosdyn.geometry import EulerZXY
@@ -14,6 +15,7 @@ from bosdyn.client.power import safe_power_off, PowerClient, power_on
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.image import ImageClient, build_image_request
 from bosdyn.api import image_pb2, robot_state_pb2, world_object_pb2
+from bosdyn.api.geometry_pb2 import Quaternion
 from bosdyn.api.graph_nav import graph_nav_pb2
 from bosdyn.api.graph_nav import map_pb2
 from bosdyn.api.graph_nav import nav_pb2
@@ -627,14 +629,32 @@ class SpotWrapper():
         self._logger.info("got command duration of {}".format(cmd_duration))
         end_time = time.time() + cmd_duration
 
-        # transform into footprint frame:
-        transforms = self._robot_state_client.get_robot_state().kinematic_state.transforms_snapshot
-        footprint_tform_odom = get_a_tform_b(transforms, "footprint", "odom")
-        odom_tform_goal = math_helpers.SE3Pose(x=0, y=0, z=goal_z, rot=goal_rotation)
-        footprint_tform_goal = footprint_tform_odom * odom_tform_goal
+        # # transform into footprint frame:
+        # transforms = self._robot_state_client.get_robot_state().kinematic_state.transforms_snapshot
+        # # rospy.loginfo(transforms)
+        # gpe_tform_odom = get_a_tform_b(transforms, "gpe", "odom")
+        # odom_tform_goal = math_helpers.SE3Pose(x=0, y=0, z=goal_z, rot=goal_rotation)
+        # gpe_tform_goal = gpe_tform_odom * odom_tform_goal
+        # body_tform_odom = get_a_tform_b(transforms, "body", "odom")
+        # body_tform_goal = body_tform_odom * odom_tform_goal
+
+
+        class JankyQuaternion:
+            def __init__(self, x, y, z, w):
+                self.x = x
+                self.y = y
+                self.z = z
+                self.w = w
+
+            def to_quaternion(self):
+                return Quaternion(x=self.x, y=self.y, z=self.z, w=self.w)
+
         response = self._robot_command(
-            RobotCommandBuilder.synchro_stand_command(body_height=footprint_tform_goal.z,
-                                                      footprint_R_body=footprint_tform_goal.rotation),
+            RobotCommandBuilder.synchro_stand_command(body_height=goal_z,
+                                                      footprint_R_body=JankyQuaternion(goal_rotation.x,
+                                                                                  goal_rotation.y,
+                                                                                  goal_rotation.z,
+                                                                                  goal_rotation.w)),
                                                       end_time_secs=end_time
         )
         if response[0]:
