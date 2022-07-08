@@ -610,6 +610,37 @@ class SpotWrapper():
         self._last_velocity_command_time = end_time
         return response[0], response[1]
 
+    def body_pose_cmd(self, goal_z, goal_rotation, cmd_duration, precise_position=False):
+        """Send a body pose command to the robot.
+
+        Args:
+            goal_z: desired height of the robot (in the body frame)
+            goal_rotation: Quaternion representing the desired rotation (also in the body frame)
+            cmd_duration: Time-to-live for the command in seconds.
+            precise_position: if set to false, the status STATUS_NEAR_GOAL and STATUS_AT_GOAL will be equivalent. If
+            true, the robot must complete its final positioning before it will be considered to have successfully
+            reached the goal.
+        """
+        self._at_goal = False
+        self._near_goal = False
+        self._last_trajectory_command_precise = precise_position
+        self._logger.info("got command duration of {}".format(cmd_duration))
+        end_time = time.time() + cmd_duration
+
+        # transform into footprint frame:
+        transforms = self._robot_state_client.get_robot_state().kinematic_state.transforms_snapshot
+        footprint_tform_body = get_a_tform_b(transforms, "footprint", "body")
+        body_tform_goal = math_helpers.SE3Pose(x=0, y=0, z=goal_z, rot=goal_rotation)
+        footprint_tform_goal = footprint_tform_body * body_tform_goal
+        response = self._robot_command(
+            RobotCommandBuilder.synchro_stand_command(body_height=footprint_tform_goal.z,
+                                                      footprint_R_body=footprint_tform_goal.rotation),
+                                                      end_time_secs=end_time
+        )
+        if response[0]:
+            self._last_trajectory_command = response[2]
+        return response[0], response[1]
+
     def trajectory_cmd(self, goal_x, goal_y, goal_heading, cmd_duration, frame_name='odom', precise_position=False):
         """Send a trajectory motion command to the robot.
 
