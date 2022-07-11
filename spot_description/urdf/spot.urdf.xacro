@@ -12,8 +12,7 @@
             </geometry>
         </collision>
     </link>
-
-    <link name="base_link"/>
+    
     <joint name="base_link_joint" type="fixed">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <parent link="body" />
@@ -265,7 +264,9 @@
 
     <!-- Standard accessories. -->
     <xacro:include filename="$(find spot_description)/urdf/accessories.urdf.xacro" />
-
+    
+    <!-- Spot Arm Include -->
+    <xacro:include filename="$(find spot_arm_description)/urdf/spot_arm.xacro" />
     <!-- Optional custom includes. -->
     <xacro:include filename="$(optenv SPOT_URDF_EXTRAS empty.urdf)" />
 </robot>
