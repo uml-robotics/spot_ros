@@ -1,4 +1,5 @@
 import rospy
+from my_grasping.msg import PixelPose
 
 from std_srvs.srv import Trigger, TriggerResponse, SetBool, SetBoolResponse
 from std_msgs.msg import Bool

@@ -6,15 +6,15 @@ from bosdyn.client import create_standard_sdk, ResponseError, RpcError
 from bosdyn.client import robot_command
 from bosdyn.client.async_tasks import AsyncPeriodicQuery, AsyncTasks
 from bosdyn.geometry import EulerZXY
-
+from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.robot_command import RobotCommandClient, RobotCommandBuilder, blocking_stand
 from bosdyn.client.graph_nav import GraphNavClient
-from bosdyn.client.frame_helpers import get_odom_tform_body, ODOM_FRAME_NAME
+from bosdyn.client.frame_helpers import get_odom_tform_body, ODOM_FRAME_NAME, GRAV_ALIGNED_BODY_FRAME_NAME
 from bosdyn.client.power import safe_power_off, PowerClient, power_on
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.image import ImageClient, build_image_request
-from bosdyn.api import estop_pb2, image_pb2
+from bosdyn.api import estop_pb2, image_pb2, manipulation_api_pb2, robot_state_pb2
 from bosdyn.api.graph_nav import graph_nav_pb2
 from bosdyn.api.graph_nav import map_pb2
 from bosdyn.api.graph_nav import nav_pb2
@@ -770,11 +770,9 @@ class SpotWrapper():
                 self._robot_command_client.robot_command(carry)
                 self._logger.info("Command carry issued")
                 time.sleep(2.0)
-
-        except Exception as e:
+       except Exception as e:
             return False, "Exception occured while carry mode was issued"
-
-        return True, "Carry mode success"
+       return True, "Carry mode success"
 
 
     def make_arm_trajectory_command(self, arm_joint_trajectory):
@@ -817,8 +815,7 @@ class SpotWrapper():
                 time_to_goal_in_seconds: float = time_to_goal.seconds + (float(time_to_goal.nanos) / float(10**9))
                 time.sleep(time_to_goal_in_seconds)
                 return True, "Spot Arm moved successfully"
-        
-        except Exception as e:
+       except Exception as e:
             return False, "Exception occured during arm movement: " + str(e)
 
     def force_trajectory(self, forces_torques):
@@ -952,7 +949,7 @@ class SpotWrapper():
                 return False, msg
             else:
                 # Open gripper at an angle
-                command = RobotCommandBuilder.claw_gripper_open_angle_command(gripper_q)
+                command = RobotCommandBuilder.claw_gripper_open_angle_command(gripper_q=gripper_ang)
 
                 # Command issue with RobotCommandClient
                 self._robot_command_client.robot_command(command)
@@ -1012,7 +1009,7 @@ class SpotWrapper():
 
                 # Send the request
                 self._robot_command_client.robot_command(command)
-                robot.logger.info('Moving arm to position.')
+                self._robot.logger.info('Moving arm to position.')
 
                 time.sleep(6.0)
 
@@ -1087,7 +1084,6 @@ class SpotWrapper():
                 return False, msg
             else:
                 walk_vec = geometry_pb2.Vec2(x=object_point[0], y=object_point[1])
-
                 manipulation_api_client = self._robot.ensure_client(ManipulationApiClient.default_service_name)
                 print("manipulation_api_client")
 
