@@ -4,7 +4,7 @@
 <xacro:include filename="$(find spot_arm_description)/urdf/materials.xacro" />
 <xacro:include filename="$(find spot_arm_description)/urdf/spot_arm.trans" />
 <xacro:include filename="$(find spot_arm_description)/urdf/spot_arm.gazebo" />
-<link name="base_link">
+<link name="arm_base_link">
   <inertial>
     <origin rpy="0 0 0" xyz="1.2371844231029972e-17 0.0 0.0325"/>
     <mass value="5.770791545379091"/>
