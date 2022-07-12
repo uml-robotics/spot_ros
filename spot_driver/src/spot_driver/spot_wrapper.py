@@ -1027,16 +1027,8 @@ class SpotWrapper():
             else:
                 # Move the arm to a spot in front of the robot given a pose for the gripper.
                 # Build a position to move the arm to (in meters, relative to the body frame origin.)
-                x = pose_points[0] #1.45
-                y = pose_points[1] #0.2
-                z = pose_points[1] #0.85
+                x, y, z, qw, qx, qy, qz = pose_points
                 position = geometry_pb2.Vec3(x=x, y=y, z=z)
-
-                # Rotation as a quaternion.
-                qw = 1
-                qx = 0
-                qy = 0
-                qz = 0
                 rotation = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
 
                 seconds = 5.0
