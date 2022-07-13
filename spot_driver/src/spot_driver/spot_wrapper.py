@@ -579,7 +579,7 @@ class SpotWrapper():
                 # Get the frame name for the fiducial of the object
                 fiducial_frame = world_object.apriltag_properties.frame_name_fiducial
                 # get the location of the fiducial in the odom frame
-                odom_tform_fiducial = get_a_tform_b(snapshot, "/odom", fiducial_frame)
+                odom_tform_fiducial = get_a_tform_b(snapshot, "odom", fiducial_frame)
                 return True, odom_tform_fiducial
         return False
 

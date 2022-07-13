@@ -357,6 +357,7 @@ class SpotROS():
             # convert SE2 Pose to pose (move to helper function plz future jacob)
             p = PoseStamped()
             p.header.frame_id = "odom"
+            print(resp[1])
             p.pose.position.x = resp[1].position.x
             p.pose.position.y = resp[1].position.y
             p.pose.position.z = resp[1].position.z

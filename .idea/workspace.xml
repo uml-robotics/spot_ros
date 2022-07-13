@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="ec410b00-3dd2-4b59-b48a-62ae54f66d68" name="Changes" comment="Finished incorporating arm mesh with spot, fixed joint state publishers">
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/spot_description/urdf/spot.urdf.xacro" beforeDir="false" afterPath="$PROJECT_DIR$/spot_description/urdf/spot.urdf.xacro" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/spot_driver/src/spot_driver/ros_helpers.py" beforeDir="false" afterPath="$PROJECT_DIR$/spot_driver/src/spot_driver/ros_helpers.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/spot_viz/rviz/model.rviz" beforeDir="false" afterPath="$PROJECT_DIR$/spot_viz/rviz/model.rviz" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProjectId" id="2AtfhoLJGOkcxQU6FbffyCoofUr" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/jacobe90/spot_ws/src/spot_ros&quot;
+  }
+}</component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="ec410b00-3dd2-4b59-b48a-62ae54f66d68" name="Changes" comment="" />
+      <created>1655833923512</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1655833923512</updated>
+    </task>
+    <task id="LOCAL-00001" summary="Adding docking and undocking servers (need to be tested)">
+      <created>1655837147932</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1655837147932</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Added a server for getting the ids of world objects with fiducials (needs testing)">
+      <created>1655911960426</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1655911960426</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Added a server for getting the pose of a specific fiducial, given its ID">
+      <created>1655932443696</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1655932443696</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Small bugfix with dock and undock servers">
+      <created>1656103471628</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1656103471628</updated>
+    </task>
+    <task id="LOCAL-00005" summary="user/pw">
+      <created>1657217297367</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1657217297367</updated>
+    </task>
+    <task id="LOCAL-00006" summary="initial commit">
+      <created>1657219870536</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1657219870536</updated>
+    </task>
+    <task id="LOCAL-00007" summary="added body pose action server">
+      <created>1657293356897</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1657293356897</updated>
+    </task>
+    <task id="LOCAL-00008" summary="made body pose actionserver require poses to be in odom instead of body">
+      <created>1657295994468</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1657295994468</updated>
+    </task>
+    <task id="LOCAL-00009" summary="debugged spot body pose mode">
+      <created>1657315288014</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1657315288014</updated>
+    </task>
+    <task id="LOCAL-00010" summary="Combined spot arm and spot body into one urdf">
+      <created>1657573217691</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1657573217691</updated>
+    </task>
+    <task id="LOCAL-00011" summary="Missing imports, syntax errors fixed">
+      <created>1657642083446</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1657642083455</updated>
+    </task>
+    <task id="LOCAL-00012" summary="cleaned up some sussy stuff in the hand pose&#10;- eliminated what looked like a typo (z = pose_points[1]&#10;- gave user the ability to set rotation as well as position">
+      <created>1657645554987</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1657645554987</updated>
+    </task>
+    <task id="LOCAL-00013" summary="merged the arm and body urdfs in a better way&#10;- changed arm base frame to arm_base_link&#10;- created a joint between arm_base_link and body&#10;- deleted hardcoded import of arm urdf, use SPOT_URDF_EXTRAS now">
+      <created>1657648540121</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1657648540121</updated>
+    </task>
+    <task id="LOCAL-00014" summary="Finished incorporating arm mesh with spot">
+      <created>1657738943632</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1657738943632</updated>
+    </task>
+    <task id="LOCAL-00015" summary="Finished incorporating arm mesh with spot, fixed joint state publishers">
+      <created>1657739013979</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1657739013979</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
+    <servers />
+  </component>
+  <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName="*.srv" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Adding docking and undocking servers (need to be tested)" />
+    <MESSAGE value="Added a server for getting the ids of world objects with fiducials (needs testing)" />
+    <MESSAGE value="Added a server for getting the pose of a specific fiducial, given its ID" />
+    <MESSAGE value="Small bugfix with dock and undock servers" />
+    <MESSAGE value="user/pw" />
+    <MESSAGE value="initial commit" />
+    <MESSAGE value="added body pose action server" />
+    <MESSAGE value="made body pose actionserver require poses to be in odom instead of body" />
+    <MESSAGE value="debugged spot body pose mode" />
+    <MESSAGE value="Combined spot arm and spot body into one urdf" />
+    <MESSAGE value="Missing imports, syntax errors fixed" />
+    <MESSAGE value="cleaned up some sussy stuff in the hand pose&#10;- eliminated what looked like a typo (z = pose_points[1]&#10;- gave user the ability to set rotation as well as position" />
+    <MESSAGE value="merged the arm and body urdfs in a better way&#10;- changed arm base frame to arm_base_link&#10;- created a joint between arm_base_link and body&#10;- deleted hardcoded import of arm urdf, use SPOT_URDF_EXTRAS now" />
+    <MESSAGE value="Finished incorporating arm mesh with spot" />
+    <MESSAGE value="Finished incorporating arm mesh with spot, fixed joint state publishers" />
+    <option name="LAST_COMMIT_MESSAGE" value="Finished incorporating arm mesh with spot, fixed joint state publishers" />
+  </component>
+</project>
