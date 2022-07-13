@@ -202,8 +202,6 @@ def GetJointStatesFromState(state, spot_wrapper):
     joint_state.header.stamp = rospy.Time(local_time.seconds, local_time.nanos)
 
     for joint in state.kinematic_state.joint_states:
-        if "Joint" in friendly_joint_names.get(joint.name, "ERROR"):
-            rospy.loginfo("State of {}: {}".format(friendly_joint_names.get(joint.name, "ERROR"), joint.position.value))
         joint_state.name.append(friendly_joint_names.get(joint.name, "ERROR"))
         joint_state.position.append(joint.position.value)
         joint_state.velocity.append(joint.velocity.value)
