@@ -2,6 +2,7 @@ import time
 import math
 from typing import List
 
+import rospy
 from bosdyn.client import create_standard_sdk, ResponseError, RpcError
 from bosdyn.client import robot_command
 from bosdyn.client.async_tasks import AsyncPeriodicQuery, AsyncTasks
@@ -10,7 +11,7 @@ from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.robot_command import RobotCommandClient, RobotCommandBuilder, blocking_stand
 from bosdyn.client.graph_nav import GraphNavClient
-from bosdyn.client.frame_helpers import get_odom_tform_body, ODOM_FRAME_NAME, GRAV_ALIGNED_BODY_FRAME_NAME
+from bosdyn.client.frame_helpers import get_odom_tform_body, ODOM_FRAME_NAME, GRAV_ALIGNED_BODY_FRAME_NAME, BODY_FRAME_NAME
 from bosdyn.client.power import safe_power_off, PowerClient, power_on
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.image import ImageClient, build_image_request
@@ -1036,11 +1037,11 @@ class SpotWrapper():
 
                 # Build the SE(3) pose of the desired hand position in the moving body frame.
                 hand_pose = geometry_pb2.SE3Pose(position=position, rotation=rotation)
-                hand_pose_traj_point = trajectory_pb2.SE3TrajectoryPoint(pose=hand_pose, time_since_reference=duration)                
+                hand_pose_traj_point = trajectory_pb2.SE3TrajectoryPoint(pose=hand_pose, time_since_reference=duration)
                 hand_trajectory = trajectory_pb2.SE3Trajectory(points=[hand_pose_traj_point])
-                
+
                 arm_cartesian_command = arm_command_pb2.ArmCartesianCommand.Request(
-                    root_frame_name=ODOM_FRAME_NAME, pose_trajectory_in_task=hand_trajectory)
+                    root_frame_name=BODY_FRAME_NAME, pose_trajectory_in_task=hand_trajectory)
                 arm_command = arm_command_pb2.ArmCommand.Request(
                     arm_cartesian_command=arm_cartesian_command)
                 synchronized_command = synchronized_command_pb2.SynchronizedCommand.Request(
@@ -1054,9 +1055,10 @@ class SpotWrapper():
                 self._logger.info("After building command")
 
                 # Send the request
+                rospy.loginfo("Moving arm to position {}, {}, {}".format(x, y, z))
                 self._robot_command_client.robot_command(command)
                 self._logger.info('Moving arm to position.')
-
+                rospy.loginfo("Success moving arm to that position - let's gooo.")
                 time.sleep(6.0)
 
         except Exception as e:
