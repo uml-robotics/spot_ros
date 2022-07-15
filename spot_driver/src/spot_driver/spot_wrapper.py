@@ -1019,7 +1019,7 @@ class SpotWrapper():
 
         return True, "Moved arm successfully"
     
-    def hand_pose(self, pose_points):
+    def hand_pose(self, pose_points, wrist_tform_tool):
         try:
             success, msg = self.ensure_arm_power_and_stand()
             if not success:
@@ -1040,17 +1040,22 @@ class SpotWrapper():
                 hand_pose_traj_point = trajectory_pb2.SE3TrajectoryPoint(pose=hand_pose, time_since_reference=duration)
                 hand_trajectory = trajectory_pb2.SE3Trajectory(points=[hand_pose_traj_point])
 
+                # Build the SE(3) pose for wrist tform_tool (the default value was found in the protos)
+                wx, wy, wz, wqw, wqx, wqy, wqz = wrist_tform_tool if wrist_tform_tool else [0.19557, 0, 0, 1, 0, 0, 0]
+                wtposition = geometry_pb2.Vec3(x=wx, y=wy, z=wz)
+                wtrotation=geometry_pb2.Quaternion(w=wqw, x=wqx, y=wqy, z=wqz)
+                wrist_tform_tool = geometry_pb2.SE3Pose(position=wtposition, rotation=wtrotation)
+
+                # proto stuff
                 arm_cartesian_command = arm_command_pb2.ArmCartesianCommand.Request(
-                    root_frame_name=BODY_FRAME_NAME, pose_trajectory_in_task=hand_trajectory)
+                    root_frame_name=BODY_FRAME_NAME, pose_trajectory_in_task=hand_trajectory,
+                    wrist_tform_tool=wrist_tform_tool)
                 arm_command = arm_command_pb2.ArmCommand.Request(
                     arm_cartesian_command=arm_cartesian_command)
                 synchronized_command = synchronized_command_pb2.SynchronizedCommand.Request(
                     arm_command=arm_command)
-                                
-                #robot_command = self._robot_command(RobotCommandBuilder.build_synchro_command(synchronized_command))
-                robot_command = robot_command_pb2.RobotCommand(synchronized_command=synchronized_command)
-
-                command = self._robot_command(RobotCommandBuilder.build_synchro_command(robot_command))
+                hand_pose_command = robot_command_pb2.RobotCommand(synchronized_command=synchronized_command)
+                command = self._robot_command(RobotCommandBuilder.build_synchro_command(hand_pose_command))
 
                 self._logger.info("After building command")
 
@@ -1058,7 +1063,6 @@ class SpotWrapper():
                 rospy.loginfo("Moving arm to position {}, {}, {}".format(x, y, z))
                 self._robot_command_client.robot_command(command)
                 self._logger.info('Moving arm to position.')
-                rospy.loginfo("Success moving arm to that position - let's gooo.")
                 time.sleep(6.0)
 
         except Exception as e:

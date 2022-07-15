@@ -561,7 +561,7 @@ class SpotROS():
     
     def handle_hand_pose(self, srv_data: HandPoseRequest):
         """ROS service to give a position to the gripper"""
-        resp = self.spot_wrapper.hand_pose(pose_points = srv_data.pose_point)
+        resp = self.spot_wrapper.hand_pose(pose_points = srv_data.pose_point, wrist_tform_tool=srv_data.wrist_tform_tool)
         return HandPoseResponse(resp[0], resp[1])
     
     def walk_to_obj_callback(self, obj_point):
