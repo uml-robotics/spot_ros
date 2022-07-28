@@ -7,7 +7,7 @@ from tf2_msgs.msg import TFMessage
 from geometry_msgs.msg import TransformStamped
 from sensor_msgs.msg import Image, CameraInfo
 from sensor_msgs.msg import JointState
-from geometry_msgs.msg import TwistWithCovarianceStamped, Twist, Pose
+from geometry_msgs.msg import TwistWithCovarianceStamped, Twist, PoseStamped, Pose
 from nav_msgs.msg import Odometry
 
 from bosdyn.api.spot import robot_command_pb2 as spot_command_pb2
@@ -36,6 +36,8 @@ from spot_msgs.srv import ListGraph, ListGraphResponse
 from spot_msgs.srv import SetLocomotion, SetLocomotionResponse
 from spot_msgs.srv import ClearBehaviorFault, ClearBehaviorFaultResponse
 from spot_msgs.srv import SetVelocity, SetVelocityResponse
+from spot_msgs.srv import ListTaggedObjects, ListTaggedObjectsResponse
+from spot_msgs.srv import GetObjectPose, GetObjectPoseResponse
 
 
 
@@ -304,6 +306,13 @@ class SpotROS():
         resp = self.spot_wrapper.stand()
         return TriggerResponse(resp[0], resp[1])
 
+    def handle_dock(self, req):
+        resp = self.spot_wrapper.dock()
+        return TriggerResponse(resp[0], resp[1])
+
+    def handle_undock(self, req):
+        resp = self.spot_wrapper.undock()
+        return TriggerResponse(resp[0], resp[1])
     def handle_power_on(self, req):
         """ROS service handler for the power-on service"""
         resp = self.spot_wrapper.power_on()
@@ -375,6 +384,89 @@ class SpotROS():
             return SetVelocityResponse(True, 'Success')
         except Exception as e:
             return SetVelocityResponse(False, 'Error:{}'.format(e))
+
+    def handle_list_tagged_objects(self, req):
+        object_ids = self.spot_wrapper.list_tagged_objects()
+        resp = ListTaggedObjectsResponse()
+        resp.waypoint_ids = object_ids
+        return resp
+
+    def handle_get_tagged_object_pose(self, req):
+        resp = self.spot_wrapper.get_object_pose(req.id)
+        if (resp[0]):
+            # convert SE2 Pose to pose (move to helper function plz future jacob)
+            p = PoseStamped()
+            p.header.frame_id = "odom"
+            print(resp[1])
+            p.pose.position.x = resp[1].position.x
+            p.pose.position.y = resp[1].position.y
+            p.pose.position.z = resp[1].position.z
+            p.pose.orientation.x = resp[1].rotation.x
+            p.pose.orientation.y = resp[1].rotation.y
+            p.pose.orientation.z = resp[1].rotation.z
+            p.pose.orientation.w = resp[1].rotation.w
+            return GetObjectPoseResponse(resp[0], "success!", p)
+        r = GetObjectPoseResponse()
+        r.success = False
+        r.message = "Unable to find object with fiducial ID " + req.id
+        return r
+
+    def handle_body_pose(self, req):
+        if req.target_pose.header.frame_id != 'odom':
+            self.trajectory_server.set_aborted(TrajectoryResult(False, 'frame_id of target_pose must be \'odom\''))
+            return
+        if req.duration.data.to_sec() <= 0:
+            self.trajectory_server.set_aborted(TrajectoryResult(False, 'duration must be larger than 0'))
+            return
+        cmd_duration = rospy.Duration(req.duration.data.secs, req.duration.data.nsecs)
+        resp = self.spot_wrapper.body_pose_cmd(
+            goal_z=req.target_pose.pose.position.z,
+            goal_rotation=math_helpers.Quat(
+                w=req.target_pose.pose.orientation.w,
+                x=req.target_pose.pose.orientation.x,
+                y=req.target_pose.pose.orientation.y,
+                z=req.target_pose.pose.orientation.z
+            ),
+            cmd_duration=cmd_duration.to_sec(),
+            precise_position=req.precise_positioning
+        )
+
+        def timeout_cb(trajectory_server, _):
+            trajectory_server.publish_feedback(TrajectoryFeedback("Failed to reach goal, timed out"))
+            trajectory_server.set_aborted(TrajectoryResult(False, "Failed to reach goal, timed out"))
+
+        # Abort the actionserver if cmd_duration is exceeded - the driver stops but does not provide feedback to
+        # indicate this so we monitor it ourselves
+        cmd_timeout = rospy.Timer(cmd_duration, functools.partial(timeout_cb, self.trajectory_server), oneshot=True)
+
+        # The trajectory command is non-blocking but we need to keep this function up in order to interrupt if a
+        # preempt is requested and to return success if/when the robot reaches the goal. Also check the is_active to
+        # monitor whether the timeout_cb has already aborted the command
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown() and not self.trajectory_server.is_preempt_requested() and not self.spot_wrapper.at_goal and self.trajectory_server.is_active():
+            if self.spot_wrapper.near_goal:
+                if self.spot_wrapper._last_trajectory_command_precise:
+                    self.trajectory_server.publish_feedback(TrajectoryFeedback("Near goal, performing final adjustments"))
+                else:
+                    self.trajectory_server.publish_feedback(TrajectoryFeedback("Near goal"))
+            else:
+                self.trajectory_server.publish_feedback(TrajectoryFeedback("Moving to goal"))
+            rate.sleep()
+
+        # If still active after exiting the loop, the command did not time out
+        if self.trajectory_server.is_active():
+            cmd_timeout.shutdown()
+            if self.trajectory_server.is_preempt_requested():
+                self.trajectory_server.publish_feedback(TrajectoryFeedback("Preempted"))
+                self.trajectory_server.set_preempted()
+                self.spot_wrapper.stop()
+
+            if self.spot_wrapper.at_goal:
+                self.trajectory_server.publish_feedback(TrajectoryFeedback("Reached goal"))
+                self.trajectory_server.set_succeeded(TrajectoryResult(resp[0], resp[1]))
+            else:
+                self.trajectory_server.publish_feedback(TrajectoryFeedback("Failed to reach goal"))
+                self.trajectory_server.set_aborted(TrajectoryResult(False, "Failed to reach goal"))
 
     def handle_trajectory(self, req):
         """ROS actionserver execution handler to handle receiving a request to move to a location"""
@@ -469,6 +561,7 @@ class SpotROS():
             if localization_state.localization.waypoint_id:
                 self.navigate_as.publish_feedback(NavigateToFeedback(localization_state.localization.waypoint_id))
             rospy.Rate(10).sleep()
+
 
     def handle_navigate_to(self, msg):
         """ROS service handler to run mission of the robot.  The robot will replay a mission"""
@@ -698,6 +791,8 @@ class SpotROS():
             rospy.Service("self_right", Trigger, self.handle_self_right)
             rospy.Service("sit", Trigger, self.handle_sit)
             rospy.Service("stand", Trigger, self.handle_stand)
+            rospy.Service("dock", Trigger, self.handle_dock)
+            rospy.Service("undock", Trigger, self.handle_undock)
             rospy.Service("power_on", Trigger, self.handle_power_on)
             rospy.Service("power_off", Trigger, self.handle_safe_power_off)
 
@@ -710,6 +805,8 @@ class SpotROS():
             rospy.Service("max_velocity", SetVelocity, self.handle_max_vel)
             rospy.Service("clear_behavior_fault", ClearBehaviorFault, self.handle_clear_behavior_fault)
 
+            rospy.Service("list_tagged_objects", ListTaggedObjects, self.handle_list_tagged_objects)
+            rospy.Service("get_object_pose", GetObjectPose, self.handle_get_tagged_object_pose)
             rospy.Service("list_graph", ListGraph, self.handle_list_graph)
 
             # Arm Services #########################################
@@ -725,6 +822,8 @@ class SpotROS():
             rospy.Service("gripper_pose", HandPose, self.handle_hand_pose)
             #########################################################
 
+            self.body_pose_as = actionlib.SimpleActionServer('body_pose', TrajectoryAction, execute_cb = self.handle_body_pose, auto_start=False)
+            self.body_pose_as.start()
             self.navigate_as = actionlib.SimpleActionServer('navigate_to', NavigateToAction,
                                                             execute_cb = self.handle_navigate_to,
                                                             auto_start = False)

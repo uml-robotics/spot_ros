@@ -7,15 +7,17 @@ from bosdyn.client import create_standard_sdk, ResponseError, RpcError
 from bosdyn.client import robot_command
 from bosdyn.client.async_tasks import AsyncPeriodicQuery, AsyncTasks
 from bosdyn.geometry import EulerZXY
-from bosdyn.client.manipulation_api_client import ManipulationApiClient
+from bosdyn.client.docking import blocking_dock_robot, blocking_undock
 from bosdyn.client.robot_state import RobotStateClient
-from bosdyn.client.robot_command import RobotCommandClient, RobotCommandBuilder, blocking_stand
+from bosdyn.client.robot_command import RobotCommandClient, RobotCommandBuilder, CommandFailedError
 from bosdyn.client.graph_nav import GraphNavClient
-from bosdyn.client.frame_helpers import get_odom_tform_body, ODOM_FRAME_NAME, GRAV_ALIGNED_BODY_FRAME_NAME, BODY_FRAME_NAME
+from bosdyn.client.world_object import WorldObjectClient
+from bosdyn.client.frame_helpers import get_odom_tform_body, get_a_tform_b
 from bosdyn.client.power import safe_power_off, PowerClient, power_on
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.image import ImageClient, build_image_request
-from bosdyn.api import estop_pb2, image_pb2, manipulation_api_pb2, robot_state_pb2
+from bosdyn.api import image_pb2, robot_state_pb2, world_object_pb2
+from bosdyn.api.geometry_pb2 import Quaternion
 from bosdyn.api.graph_nav import graph_nav_pb2
 from bosdyn.api.graph_nav import map_pb2
 from bosdyn.api.graph_nav import nav_pb2
@@ -280,6 +282,7 @@ class SpotWrapper():
                 self._robot_state_client = self._robot.ensure_client(RobotStateClient.default_service_name)
                 self._robot_command_client = self._robot.ensure_client(RobotCommandClient.default_service_name)
                 self._graph_nav_client = self._robot.ensure_client(GraphNavClient.default_service_name)
+                self._world_object_client = self._robot.ensure_client(WorldObjectClient.default_service_name)
                 self._power_client = self._robot.ensure_client(PowerClient.default_service_name)
                 self._lease_client = self._robot.ensure_client(LeaseClient.default_service_name)
                 self._lease_wallet = self._lease_client.lease_wallet
@@ -545,6 +548,20 @@ class SpotWrapper():
             self._last_stand_command = response[2]
         return response[0], response[1]
 
+    def undock(self):
+        try:
+            blocking_undock(self._robot)
+        except CommandFailedError:
+            return False, "Undocking failed"
+        return True, "Undocking Succeeded"
+
+    def dock(self):
+        try:
+            blocking_dock_robot(self._robot, 520)
+        except CommandFailedError:
+            return False, "Docking failed"
+        return True, "Docking Succeeded!"
+
     def safe_power_off(self):
         """Stop the robot's motion and sit if possible.  Once sitting, disable motor power."""
         response = self._robot_command(RobotCommandBuilder.safe_power_off_command())
@@ -565,6 +582,27 @@ class SpotWrapper():
             return True, "Success"
         except Exception as e:
             return False, str(e)
+
+    def list_tagged_objects(self):
+        request_fiducials = [world_object_pb2.WORLD_OBJECT_APRILTAG]
+        world_objects = self._world_object_client.list_world_objects(object_type=request_fiducials).world_objects
+        tagged_object_ids = []
+        for world_obj in world_objects:
+            tagged_object_ids.append(str(world_obj.id))
+        return tagged_object_ids
+
+    def get_object_pose(self, id):
+        world_objects = self._world_object_client.list_world_objects().world_objects
+        for world_object in world_objects:
+            if id == str(world_object.id):
+                # Get the transform snapshot for the world object
+                snapshot = world_object.transforms_snapshot
+                # Get the frame name for the fiducial of the object
+                fiducial_frame = world_object.apriltag_properties.frame_name_fiducial
+                # get the location of the fiducial in the odom frame
+                odom_tform_fiducial = get_a_tform_b(snapshot, "odom", fiducial_frame)
+                return True, odom_tform_fiducial
+        return False
 
     def set_mobility_params(self, mobility_params):
         """Set Params for mobility and movement
@@ -593,6 +631,55 @@ class SpotWrapper():
                                       v_x=v_x, v_y=v_y, v_rot=v_rot, params=self._mobility_params),
                                       end_time_secs=end_time, timesync_endpoint=self._robot.time_sync.endpoint)
         self._last_velocity_command_time = end_time
+        return response[0], response[1]
+
+    def body_pose_cmd(self, goal_z, goal_rotation, cmd_duration, precise_position=False):
+        """Send a body pose command to the robot.
+
+        Args:
+            goal_z: desired height of the robot (in the body frame)
+            goal_rotation: Quaternion representing the desired rotation (also in the body frame)
+            cmd_duration: Time-to-live for the command in seconds.
+            precise_position: if set to false, the status STATUS_NEAR_GOAL and STATUS_AT_GOAL will be equivalent. If
+            true, the robot must complete its final positioning before it will be considered to have successfully
+            reached the goal.
+        """
+        self._at_goal = False
+        self._near_goal = False
+        self._last_trajectory_command_precise = precise_position
+        self._logger.info("got command duration of {}".format(cmd_duration))
+        end_time = time.time() + cmd_duration
+
+        # # transform into footprint frame:
+        # transforms = self._robot_state_client.get_robot_state().kinematic_state.transforms_snapshot
+        # # rospy.loginfo(transforms)
+        # gpe_tform_odom = get_a_tform_b(transforms, "gpe", "odom")
+        # odom_tform_goal = math_helpers.SE3Pose(x=0, y=0, z=goal_z, rot=goal_rotation)
+        # gpe_tform_goal = gpe_tform_odom * odom_tform_goal
+        # body_tform_odom = get_a_tform_b(transforms, "body", "odom")
+        # body_tform_goal = body_tform_odom * odom_tform_goal
+
+
+        class JankyQuaternion:
+            def __init__(self, x, y, z, w):
+                self.x = x
+                self.y = y
+                self.z = z
+                self.w = w
+
+            def to_quaternion(self):
+                return Quaternion(x=self.x, y=self.y, z=self.z, w=self.w)
+
+        response = self._robot_command(
+            RobotCommandBuilder.synchro_stand_command(body_height=goal_z,
+                                                      footprint_R_body=JankyQuaternion(goal_rotation.x,
+                                                                                  goal_rotation.y,
+                                                                                  goal_rotation.z,
+                                                                                  goal_rotation.w)),
+                                                      end_time_secs=end_time
+        )
+        if response[0]:
+            self._last_trajectory_command = response[2]
         return response[0], response[1]
 
     def trajectory_cmd(self, goal_x, goal_y, goal_heading, cmd_duration, frame_name='odom', precise_position=False):
@@ -1201,7 +1288,6 @@ class SpotWrapper():
         self._current_annotation_name_to_wp_id, self._current_edges = graph_nav_util.update_waypoints_and_edges(
             graph, localization_id, self._logger)
         return self._current_annotation_name_to_wp_id, self._current_edges
-
 
     def _upload_graph_and_snapshots(self, upload_filepath):
         """Upload the graph and snapshots to the robot."""
