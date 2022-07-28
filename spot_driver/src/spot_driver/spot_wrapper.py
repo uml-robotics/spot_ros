@@ -588,7 +588,7 @@ class SpotWrapper():
         world_objects = self._world_object_client.list_world_objects(object_type=request_fiducials).world_objects
         tagged_object_ids = []
         for world_obj in world_objects:
-            tagged_object_ids.append(str(world_obj.id))
+            tagged_object_ids.append(str(world_obj.apriltag_properties.frame_name_fiducial.split('_')[1]) + '*' + str(world_obj.id))
         return tagged_object_ids
 
     def get_object_pose(self, id):
