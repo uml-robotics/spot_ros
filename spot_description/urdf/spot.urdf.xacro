@@ -12,12 +12,17 @@
             </geometry>
         </collision>
     </link>
-
-    <link name="base_link"/>
+    
     <joint name="base_link_joint" type="fixed">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <parent link="body" />
         <child link="base_link" />
+    </joint>
+    <link name="base_link" />
+    <joint name="arm_base_link_joint" type="fixed">
+        <origin xyz="0 0 0" rpy="0 0 -1.5707" />
+        <parent link="front_rail" />
+        <child link="arm_base_link" />
     </joint>
 
     <link name="front_rail"/>

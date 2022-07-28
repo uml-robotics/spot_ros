@@ -42,6 +42,11 @@ add_service_files(
   ClearBehaviorFault.srv
   ListTaggedObjects.srv
   GetObjectPose.srv
+  ArmJointMovement.srv
+  ConstrainedArmJointMovement.srv
+  GripperAngleMove.srv
+  ArmForceTrajectory.srv
+  HandPose.srv
 )
 
 add_action_files(

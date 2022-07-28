@@ -1,3 +1,13 @@
+# Added ROS Driver for Arm
+
+Services added to control joints of the arm and the gripper.
+https://github.com/estherRay/spot_ros/blob/master/spot_arm.mp4
+
+# URDF and MoveIt simulation of Spot's arm
+
+Available in other repo: https://github.com/estherRay/Spot-Arm
+
+
 # Spot ROS Driver
 
 ![CP Spot](cp_spot.jpg)
