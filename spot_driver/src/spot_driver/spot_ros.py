@@ -36,6 +36,13 @@ from spot_msgs.srv import ListGraph, ListGraphResponse
 from spot_msgs.srv import SetLocomotion, SetLocomotionResponse
 from spot_msgs.srv import ClearBehaviorFault, ClearBehaviorFaultResponse
 from spot_msgs.srv import SetVelocity, SetVelocityResponse
+
+
+
+
+
+
+
 from spot_msgs.srv import ArmJointMovement, ArmJointMovementResponse, ArmJointMovementRequest
 from spot_msgs.srv import GripperAngleMove, GripperAngleMoveResponse, GripperAngleMoveRequest
 from spot_msgs.srv import ArmForceTrajectory, ArmForceTrajectoryResponse, ArmForceTrajectoryRequest
