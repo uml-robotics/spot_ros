@@ -38,13 +38,6 @@ from spot_msgs.srv import ClearBehaviorFault, ClearBehaviorFaultResponse
 from spot_msgs.srv import SetVelocity, SetVelocityResponse
 from spot_msgs.srv import ListTaggedObjects, ListTaggedObjectsResponse
 from spot_msgs.srv import GetObjectPose, GetObjectPoseResponse
-
-
-
-
-
-
-
 from spot_msgs.srv import ArmJointMovement, ArmJointMovementResponse, ArmJointMovementRequest
 from spot_msgs.srv import GripperAngleMove, GripperAngleMoveResponse, GripperAngleMoveRequest
 from spot_msgs.srv import ArmForceTrajectory, ArmForceTrajectoryResponse, ArmForceTrajectoryRequest
@@ -122,6 +115,10 @@ class SpotROS():
             # Power State #
             power_state_msg = GetPowerStatesFromState(state, self.spot_wrapper)
             self.power_pub.publish(power_state_msg)
+
+            # Manipulator State #
+            manipulator_state_msg = GetManipulatorStateFromState(state, self.spot_wrapper)
+            self.manipulator_pub.publish(manipulator_state_msg)
 
             # System Faults #
             system_fault_state_msg = GetSystemFaultsFromState(state, self.spot_wrapper)
@@ -774,7 +771,7 @@ class SpotROS():
             self.battery_pub = rospy.Publisher('status/battery_states', BatteryStateArray, queue_size=10)
             self.behavior_faults_pub = rospy.Publisher('status/behavior_faults', BehaviorFaultState, queue_size=10)
             self.system_faults_pub = rospy.Publisher('status/system_faults', SystemFaultState, queue_size=10)
-
+            self.manipulator_pub = rospy.Publisher('status/manipulator_state', ManipulatorState, queue_size=10)
             self.feedback_pub = rospy.Publisher('status/feedback', Feedback, queue_size=10)
 
             self.mobility_params_pub = rospy.Publisher('status/mobility_params', MobilityParams, queue_size=10)

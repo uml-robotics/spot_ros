@@ -31,6 +31,7 @@ add_message_files(
   Lease.msg
   LeaseResource.msg
   PowerState.msg
+  ManipulatorState.msg
   SystemFaultState.msg
 )
 

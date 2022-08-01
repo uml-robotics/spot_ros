@@ -16,12 +16,13 @@ from spot_msgs.msg import FootState, FootStateArray
 from spot_msgs.msg import EStopState, EStopStateArray
 from spot_msgs.msg import WiFiState
 from spot_msgs.msg import PowerState
+from spot_msgs.msg import ManipulatorState
 from spot_msgs.msg import BehaviorFault, BehaviorFaultState
 from spot_msgs.msg import SystemFault, SystemFaultState
 from spot_msgs.msg import BatteryState, BatteryStateArray
 
 from bosdyn.api import image_pb2
-from bosdyn.client.math_helpers import SE3Pose
+from bosdyn.client.math_helpers import SE3Pose, SE3Velocity, Vec3
 from bosdyn.client.frame_helpers import get_odom_tform_body, get_vision_tform_body
 
 friendly_joint_names = {}
@@ -382,7 +383,7 @@ def GetPowerStatesFromState(state, spot_wrapper):
     """Maps power state data from robot state proto to ROS PowerState message
 
     Args:
-        data: Robot State proto
+        state: Robot State proto
         spot_wrapper: A SpotWrapper object
     Returns:
         PowerState message
@@ -395,6 +396,16 @@ def GetPowerStatesFromState(state, spot_wrapper):
     power_state_msg.locomotion_charge_percentage = state.power_state.locomotion_charge_percentage.value
     power_state_msg.locomotion_estimated_runtime = rospy.Time(state.power_state.locomotion_estimated_runtime.seconds, state.power_state.locomotion_estimated_runtime.nanos)
     return power_state_msg
+
+def GetManipulatorStateFromState(state, spot_wrapper):
+    msg = ManipulatorState()
+    msg.gripper_open_percentage = state.manipulator_state.gripper_open_percentage
+    msg.is_gripper_holding_item = state.manipulator_state.is_gripper_holding_item
+    msg.estimated_end_effector_force_in_hand = Vec3.from_proto(state.manipulator_state.estimated_end_effector_force_in_hand)
+    msg.stow_state = state.manipulator_state.stow_state
+    msg.velocity_of_hand_in_vision = SE3Velocity.from_proto(state.manipulator_state.velocity_of_hand_in_vision)
+    msg.velocity_of_hand_in_odom = SE3Velocity.from_proto(state.manipulator_state.velocity_of_hand_in_odom)
+    return msg
 
 def getBehaviorFaults(behavior_faults, spot_wrapper):
     """Helper function to strip out behavior faults into a list

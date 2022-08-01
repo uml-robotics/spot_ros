@@ -12,11 +12,13 @@ from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.robot_command import RobotCommandClient, RobotCommandBuilder, CommandFailedError
 from bosdyn.client.graph_nav import GraphNavClient
 from bosdyn.client.world_object import WorldObjectClient
-from bosdyn.client.frame_helpers import get_odom_tform_body, get_a_tform_b
+from bosdyn.client.frame_helpers import get_odom_tform_body, get_a_tform_b, ODOM_FRAME_NAME, \
+    GRAV_ALIGNED_BODY_FRAME_NAME, BODY_FRAME_NAME
 from bosdyn.client.power import safe_power_off, PowerClient, power_on
 from bosdyn.client.lease import LeaseClient, LeaseKeepAlive
 from bosdyn.client.image import ImageClient, build_image_request
-from bosdyn.api import image_pb2, robot_state_pb2, world_object_pb2
+from bosdyn.client.manipulation_api_client import ManipulationApiClient
+from bosdyn.api import image_pb2, robot_state_pb2, world_object_pb2, manipulation_api_pb2
 from bosdyn.api.geometry_pb2 import Quaternion
 from bosdyn.api.graph_nav import graph_nav_pb2
 from bosdyn.api.graph_nav import map_pb2
