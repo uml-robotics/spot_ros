@@ -1130,15 +1130,18 @@ class SpotWrapper():
                 hand_trajectory = trajectory_pb2.SE3Trajectory(points=[hand_pose_traj_point])
 
                 # Build the SE(3) pose for wrist tform_tool (the default value was found in the protos)
-                wx, wy, wz, wqw, wqx, wqy, wqz = wrist_tform_tool if wrist_tform_tool else [0.19557, 0, 0, 1, 0, 0, 0]
+                wx, wy, wz, wqw, wqx, wqy, wqz = wrist_tform_tool if wrist_tform_tool else None
                 wtposition = geometry_pb2.Vec3(x=wx, y=wy, z=wz)
                 wtrotation=geometry_pb2.Quaternion(w=wqw, x=wqx, y=wqy, z=wqz)
                 wrist_tform_tool = geometry_pb2.SE3Pose(position=wtposition, rotation=wtrotation)
 
                 # proto stuff
                 arm_cartesian_command = arm_command_pb2.ArmCartesianCommand.Request(
-                    root_frame_name=BODY_FRAME_NAME, pose_trajectory_in_task=hand_trajectory,
-                    wrist_tform_tool=wrist_tform_tool)
+                    root_frame_name=BODY_FRAME_NAME, pose_trajectory_in_task=hand_trajectory)
+                if not wrist_tform_tool == None:
+                    arm_cartesian_command = arm_command_pb2.ArmCartesianCommand.Request(
+                        root_frame_name=BODY_FRAME_NAME, pose_trajectory_in_task=hand_trajectory,
+                        wrist_tform_tool=wrist_tform_tool)
                 arm_command = arm_command_pb2.ArmCommand.Request(
                     arm_cartesian_command=arm_cartesian_command)
                 synchronized_command = synchronized_command_pb2.SynchronizedCommand.Request(
