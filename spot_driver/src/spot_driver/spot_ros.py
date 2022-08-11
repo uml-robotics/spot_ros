@@ -32,6 +32,7 @@ from spot_msgs.msg import Feedback
 from spot_msgs.msg import MobilityParams
 from spot_msgs.msg import NavigateToAction, NavigateToResult, NavigateToFeedback
 from spot_msgs.msg import TrajectoryAction, TrajectoryResult, TrajectoryFeedback
+from spot_msgs.msg import GripperAngleAction, GripperAngleResult
 from spot_msgs.srv import ListGraph, ListGraphResponse
 from spot_msgs.srv import SetLocomotion, SetLocomotionResponse
 from spot_msgs.srv import ClearBehaviorFault, ClearBehaviorFaultResponse
@@ -42,7 +43,7 @@ from spot_msgs.srv import ArmJointMovement, ArmJointMovementResponse, ArmJointMo
 from spot_msgs.srv import GripperAngleMove, GripperAngleMoveResponse, GripperAngleMoveRequest
 from spot_msgs.srv import ArmForceTrajectory, ArmForceTrajectoryResponse, ArmForceTrajectoryRequest
 from spot_msgs.srv import HandPose, HandPoseResponse, HandPoseRequest
-
+from spot_msgs.srv import GetLocalizationState, GetLocalizationStateResponse
 
 from .ros_helpers import *
 from .spot_wrapper import SpotWrapper
@@ -60,6 +61,7 @@ class SpotROS():
         self.callbacks = {}
         """Dictionary listing what callback to use for what data task"""
         self.callbacks["robot_state"] = self.RobotStateCB
+        self.callbacks["localization_state"] = self.LocalizationStateCB
         self.callbacks["metrics"] = self.MetricsCB
         self.callbacks["lease"] = self.LeaseCB
         self.callbacks["front_image"] = self.FrontImageCB
@@ -127,6 +129,13 @@ class SpotROS():
             # Behavior Faults #
             behavior_fault_state_msg = getBehaviorFaultsFromState(state, self.spot_wrapper)
             self.behavior_faults_pub.publish(behavior_fault_state_msg)
+
+    def LocalizationStateCB(self, results):
+        localization_state = self.spot_wrapper.localization_state
+        if localization_state:
+            localization_msg = GetLocalizationFromState(localization_state, self.spot_wrapper)
+            self.localization_pub.publish(localization_msg)
+
 
     def MetricsCB(self, results):
         """Callback for when the Spot Wrapper gets new metrics data.
@@ -525,6 +534,14 @@ class SpotROS():
                 self.trajectory_server.publish_feedback(TrajectoryFeedback("Failed to reach goal"))
                 self.trajectory_server.set_aborted(TrajectoryResult(False, "Failed to reach goal"))
 
+    def handle_gripper_move(self, req):
+        resp = self.spot_wrapper.gripper_angle_open(req.gripper_angle)
+        if resp[0]:
+            self.gripper_angle_open_as.set_succeeded(GripperAngleResult(resp[0]))
+        else:
+            self.gripper_angle_open_as.set_aborted(GripperAngleResult(resp[0]))
+
+
     def cmdVelCallback(self, data):
         """Callback for cmd_vel command"""
         self.spot_wrapper.velocity_cmd(data.linear.x, data.linear.y, data.angular.z)
@@ -545,6 +562,10 @@ class SpotROS():
         mobility_params = self.spot_wrapper.get_mobility_params()
         mobility_params.body_control.CopyFrom(body_control)
         self.spot_wrapper.set_mobility_params(mobility_params)
+
+    def handle_get_localization_state(self, req):
+        resp = self.spot_wrapper.get_localization_state(req)
+        return GetLocalizationStateResponse(resp)
 
     def handle_list_graph(self, upload_path):
         """ROS service handler for listing graph_nav waypoint_ids"""
@@ -773,7 +794,7 @@ class SpotROS():
             self.system_faults_pub = rospy.Publisher('status/system_faults', SystemFaultState, queue_size=10)
             self.manipulator_pub = rospy.Publisher('status/manipulator_state', ManipulatorState, queue_size=10)
             self.feedback_pub = rospy.Publisher('status/feedback', Feedback, queue_size=10)
-
+            self.localization_pub = rospy.Publisher('status/localization_state', LocalizationState, queue_size=10)
             self.mobility_params_pub = rospy.Publisher('status/mobility_params', MobilityParams, queue_size=10)
 
             rospy.Subscriber('cmd_vel', Twist, self.cmdVelCallback, queue_size = 1)
@@ -804,6 +825,7 @@ class SpotROS():
 
             rospy.Service("list_tagged_objects", ListTaggedObjects, self.handle_list_tagged_objects)
             rospy.Service("get_object_pose", GetObjectPose, self.handle_get_tagged_object_pose)
+            rospy.Service("get_localization_state", GetLocalizationState, self.handle_get_localization_state)
             rospy.Service("list_graph", ListGraph, self.handle_list_graph)
 
             # Arm Services #########################################
@@ -825,7 +847,8 @@ class SpotROS():
                                                             execute_cb = self.handle_navigate_to,
                                                             auto_start = False)
             self.navigate_as.start()
-
+            self.gripper_angle_open_as = actionlib.SimpleActionServer('gripper_angle', GripperAngleAction, execute_cb=self.handle_gripper_move, auto_start=False)
+            self.gripper_angle_open_as.start()
             self.trajectory_server = actionlib.SimpleActionServer("trajectory", TrajectoryAction,
                                                                   execute_cb=self.handle_trajectory,
                                                                   auto_start=False)

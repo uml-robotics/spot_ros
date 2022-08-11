@@ -73,6 +73,28 @@ class AsyncRobotState(AsyncPeriodicQuery):
             callback_future.add_done_callback(self._callback)
             return callback_future
 
+class AsyncLocalizationState(AsyncPeriodicQuery):
+    """Class to get robot state at regular intervals.  get_robot_state_async query sent to the robot at every tick.  Callback registered to defined callback function.
+
+        Attributes:
+            client: The Client to a service on the robot
+            logger: Logger object
+            rate: Rate (Hz) to trigger the query
+            callback: Callback function to call when the results of the query are available
+    """
+    def __init__(self, client, logger, rate, callback):
+        super(AsyncLocalizationState, self).__init__("localization-state", client, logger,
+                                           period_sec=1.0/max(rate, 1.0))
+        self._callback = None
+        if rate > 0.0:
+            self._callback = callback
+
+    def _start_query(self):
+        if self._callback:
+            callback_future = self._client.get_localization_state_async()
+            callback_future.add_done_callback(self._callback)
+            return callback_future
+
 class AsyncMetrics(AsyncPeriodicQuery):
     """Class to get robot metrics at regular intervals.  get_robot_metrics_async query sent to the robot at every tick.  Callback registered to defined callback function.
 
@@ -290,6 +312,7 @@ class SpotWrapper():
                 self._lease_wallet = self._lease_client.lease_wallet
                 self._image_client = self._robot.ensure_client(ImageClient.default_service_name)
                 self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
+
             except Exception as e:
                 self._logger.error("Unable to create client service: %s", e)
                 self._valid = False
@@ -305,6 +328,7 @@ class SpotWrapper():
             # Async Tasks
             self._async_task_list = []
             self._robot_state_task = AsyncRobotState(self._robot_state_client, self._logger, max(0.0, self._rates.get("robot_state", 0.0)), self._callbacks.get("robot_state", lambda:None))
+            self._localization_state_task = AsyncLocalizationState(self._graph_nav_client, self._logger, max(0.0, self._rates.get("localization_state", 0.0)), self._callbacks.get("localization_state", lambda:None))
             self._robot_metrics_task = AsyncMetrics(self._robot_state_client, self._logger, max(0.0, self._rates.get("metrics", 0.0)), self._callbacks.get("metrics", lambda:None))
             self._lease_task = AsyncLease(self._lease_client, self._logger, max(0.0, self._rates.get("lease", 0.0)), self._callbacks.get("lease", lambda:None))
             self._front_image_task = AsyncImageService(self._image_client, self._logger, max(0.0, self._rates.get("front_image", 0.0)), self._callbacks.get("front_image", lambda:None), self._front_image_requests)
@@ -316,7 +340,7 @@ class SpotWrapper():
             self._estop_endpoint = None
 
             self._async_tasks = AsyncTasks(
-                [self._robot_state_task, self._robot_metrics_task, self._lease_task, self._front_image_task, self._side_image_task, self._rear_image_task, self._hand_image_task, self._idle_task])
+                [self._robot_state_task, self._localization_state_task, self._robot_metrics_task, self._lease_task, self._front_image_task, self._side_image_task, self._rear_image_task, self._hand_image_task, self._idle_task])
 
             self._robot_id = None
             self._lease = None
@@ -340,7 +364,10 @@ class SpotWrapper():
     def robot_state(self):
         """Return latest proto from the _robot_state_task"""
         return self._robot_state_task.proto
-
+    @property
+    def localization_state(self):
+        """Return latest proto from the _localization_state_task"""
+        return self._localization_state_task.proto
     @property
     def metrics(self):
         """Return latest proto from the _robot_metrics_task"""
@@ -1044,7 +1071,7 @@ class SpotWrapper():
                 # Command issue with RobotCommandClient
                 self._robot_command_client.robot_command(command)
                 self._logger.info("Command gripper open angle sent")
-                time.sleep(2.0)
+                # time.sleep(2.0)
 
         except Exception as e:
             return False, "Exception occured while gripper was moving"
@@ -1120,8 +1147,7 @@ class SpotWrapper():
                 x, y, z, qw, qx, qy, qz = pose_points
                 position = geometry_pb2.Vec3(x=x, y=y, z=z)
                 rotation = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
-
-                seconds = 5.0
+                seconds = 15.0
                 duration = seconds_to_duration(seconds)
 
                 # Build the SE(3) pose of the desired hand position in the moving body frame.
@@ -1153,7 +1179,21 @@ class SpotWrapper():
 
                 # Send the request
                 rospy.loginfo("Moving arm to position {}, {}, {}".format(x, y, z))
-                self._robot_command_client.robot_command(command)
+                cmd_id = self._robot_command_client.robot_command(command)
+                while True:
+                    feedback_resp = self._robot_command_client.robot_command_feedback(cmd_id)
+                    rospy.loginfo(
+                        'Distance to final point: ' + '{:.2f} meters'.format(
+                            feedback_resp.feedback.synchronized_feedback.arm_command_feedback.
+                            arm_cartesian_feedback.measured_pos_distance_to_goal) +
+                        ', {:.2f} radians'.format(
+                            feedback_resp.feedback.synchronized_feedback.arm_command_feedback.
+                            arm_cartesian_feedback.measured_rot_distance_to_goal))
+
+                    if feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.status == arm_command_pb2.ArmCartesianCommand.Feedback.STATUS_TRAJECTORY_COMPLETE:
+                        rospy.loginfo('Move complete.')
+                        break
+                    time.sleep(0.1)
                 self._logger.info('Moving arm to position.')
                 time.sleep(6.0)
 

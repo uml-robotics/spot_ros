@@ -5,7 +5,7 @@ from tf2_msgs.msg import TFMessage
 from geometry_msgs.msg import TransformStamped
 from sensor_msgs.msg import Image, CameraInfo
 from sensor_msgs.msg import JointState
-from geometry_msgs.msg import PoseWithCovariance
+from geometry_msgs.msg import Pose, PoseWithCovariance
 from geometry_msgs.msg import TwistWithCovariance
 from geometry_msgs.msg import TwistWithCovarianceStamped
 from nav_msgs.msg import Odometry
@@ -20,10 +20,11 @@ from spot_msgs.msg import ManipulatorState
 from spot_msgs.msg import BehaviorFault, BehaviorFaultState
 from spot_msgs.msg import SystemFault, SystemFaultState
 from spot_msgs.msg import BatteryState, BatteryStateArray
-
+from spot_msgs.msg import LocalizationState
 from bosdyn.api import image_pb2
 from bosdyn.client.math_helpers import SE3Pose, SE3Velocity, Vec3
 from bosdyn.client.frame_helpers import get_odom_tform_body, get_vision_tform_body
+from std_msgs.msg import Bool
 
 friendly_joint_names = {}
 """Dictionary for mapping BD joint names to more friendly names"""
@@ -305,6 +306,18 @@ def GetOdomFromState(state, spot_wrapper, use_vision=True):
     odom_msg.twist = twist_odom_msg
     return odom_msg
 
+def GetLocalizationFromState(state, spot_wrapper):
+    localization_msg = LocalizationState()
+    if not state.localization.waypoint_id:
+        localization_msg.is_localized = False
+        return localization_msg
+    localization_msg.waypoint_id = state.localization.waypoint_id
+    localization_msg.waypoint_tform_body.pose = toROSPose(state.localization.waypoint_tform_body)
+    localization_msg.seed_tform_body = toROSPose(state.localization.waypoint_tform_body)
+    local_time = spot_wrapper.robotToLocalTime(state.kinematic_state.acquisition_timestamp)
+    localization_msg.timestamp = rospy.Time(local_time.seconds, local_time.nanos)
+    return localization_msg
+
 def GetWifiFromState(state, spot_wrapper):
     """Maps wireless state data from robot state proto to ROS WiFiState message
 
@@ -484,3 +497,14 @@ def getBehaviorFaultsFromState(state, spot_wrapper):
     behavior_fault_state_msg = BehaviorFaultState()
     behavior_fault_state_msg.faults = getBehaviorFaults(state.behavior_fault_state.faults, spot_wrapper)
     return behavior_fault_state_msg
+
+def toROSPose(state):
+    p = Pose()
+    p.position.x = state.position.x
+    p.position.y = state.position.y
+    p.position.z = state.position.z
+    p.orientation.x = state.rotation.x
+    p.orientation.y = state.orientation.y
+    p.orientation.z = state.orientation.z
+    p.orientation.w = state.orientation.w
+    return p
