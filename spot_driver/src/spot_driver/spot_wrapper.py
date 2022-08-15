@@ -1,5 +1,6 @@
 import time
 import math
+import os
 from typing import List
 
 import rospy
@@ -92,6 +93,7 @@ class AsyncLocalizationState(AsyncPeriodicQuery):
         self._callback = None
         if rate > 0.0:
             self._callback = callback
+        rospy.loginfo("initializing localization state yo!")
 
     def _start_query(self):
         if self._callback:
@@ -816,6 +818,35 @@ class SpotWrapper():
         # skip waypoint_ for v2.2.1, skip waypiont for < v2.2
         return [v for k, v in sorted(ids.items(), key=lambda id: int(id[0].replace('waypoint_', '')))]
 
+    def localize_in_graph(self, upload_path, initial_localization_fiducial=True, initial_localization_waypoint = None):
+        # Filepath for uploading a saved graph's and snapshots to.
+        if upload_path[-1] == "/":
+            upload_filepath = upload_path[:-1]
+        else:
+            upload_filepath = upload_path
+
+        # Boolean indicating the robot's power state.
+        power_state = self._robot_state_client.get_robot_state().power_state
+        self._started_powered_on = (power_state.motor_power_state == power_state.STATE_ON)
+        self._powered_on = self._started_powered_on
+
+        # FIX ME somehow,,,, if the robot is stand, need to sit the robot before starting graph nav
+        if self.is_standing and not self.is_moving:
+            self.sit()
+
+        # TODO verify estop  / claim / power_on
+        self._clear_graph()
+        self._upload_graph_and_snapshots(upload_filepath)
+        if initial_localization_fiducial:
+            self._set_initial_localization_fiducial()
+        if initial_localization_waypoint:
+            self._set_initial_localization_waypoint([initial_localization_waypoint])
+
+        localization_state = self._graph_nav_client.get_localization_state()
+        if not localization_state.localization.waypoint_id:
+            return False, "Localization failed!"
+        return True, "Localization succeeded!"
+
     def navigate_to(self, upload_path,
                     navigate_to,
                     initial_localization_fiducial=True,
@@ -829,27 +860,8 @@ class SpotWrapper():
            initial_localization_waypoint : Waypoint id string of current robot position (optional)
         """
         # Filepath for uploading a saved graph's and snapshots too.
-        if upload_path[-1] == "/":
-            upload_filepath = upload_path[:-1]
-        else:
-            upload_filepath = upload_path
-
-        # Boolean indicating the robot's power state.
-        power_state = self._robot_state_client.get_robot_state().power_state
-        self._started_powered_on = (power_state.motor_power_state == power_state.STATE_ON)
-        self._powered_on = self._started_powered_on
-
-        # FIX ME somehow,,,, if the robot is stand, need to sit the robot before starting garph nav
-        if self.is_standing and not self.is_moving:
-            self.sit()
-
-        # TODO verify estop  / claim / power_on
-        self._clear_graph()
-        self._upload_graph_and_snapshots(upload_filepath)
-        if initial_localization_fiducial:
-            self._set_initial_localization_fiducial()
-        if initial_localization_waypoint:
-            self._set_initial_localization_waypoint([initial_localization_waypoint])
+        self.localize_in_graph(upload_path, initial_localization_fiducial=initial_localization_fiducial,
+                               initial_localization_waypoint=initial_localization_waypoint)
         self._list_graph_waypoint_and_edge_ids()
         self._get_localization_state()
         resp = self._navigate_to([navigate_to])
@@ -1407,13 +1419,19 @@ class SpotWrapper():
                 len(self._current_graph.waypoints), len(self._current_graph.edges)))
         for waypoint in self._current_graph.waypoints:
             # Load the waypoint snapshots from disk.
+            file_name = os.path.join(upload_filepath, "waypoint_snapshots", waypoint.snapshot_id)
+            if not os.path.exists(file_name) or os.path.isdir(file_name):
+                continue
             with open(upload_filepath + "/waypoint_snapshots/{}".format(waypoint.snapshot_id),
                       "rb") as snapshot_file:
                 waypoint_snapshot = map_pb2.WaypointSnapshot()
                 waypoint_snapshot.ParseFromString(snapshot_file.read())
                 self._current_waypoint_snapshots[waypoint_snapshot.id] = waypoint_snapshot
         for edge in self._current_graph.edges:
-            # Load the edge snapshots from disk.
+            # Load the edge snapshots from disk
+            file_name = os.path.join(upload_filepath, "edge_snapshots", edge.snapshot_id)
+            if not os.path.exists(file_name) or os.path.isdir(file_name):
+                continue
             with open(upload_filepath + "/edge_snapshots/{}".format(edge.snapshot_id),
                       "rb") as snapshot_file:
                 edge_snapshot = map_pb2.EdgeSnapshot()
@@ -1438,7 +1456,7 @@ class SpotWrapper():
         if not localization_state.localization.waypoint_id:
             # The robot is not localized to the newly uploaded graph.
             self._logger.info(
-                "Upload complete! The robot is currently not localized to the map; please localize", \
+                "Upload complete! The robot is currently not localized to the map; please localize" +
                 "the robot using commands (2) or (3) before attempting a navigation command.")
 
     def _navigate_to(self, *args):

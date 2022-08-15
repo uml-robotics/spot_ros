@@ -49,6 +49,7 @@ add_service_files(
   GripperAngleMove.srv
   ArmForceTrajectory.srv
   HandPose.srv
+  LocalizeInGraph.srv
 )
 
 add_action_files(

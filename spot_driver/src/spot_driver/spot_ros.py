@@ -43,8 +43,7 @@ from spot_msgs.srv import ArmJointMovement, ArmJointMovementResponse, ArmJointMo
 from spot_msgs.srv import GripperAngleMove, GripperAngleMoveResponse, GripperAngleMoveRequest
 from spot_msgs.srv import ArmForceTrajectory, ArmForceTrajectoryResponse, ArmForceTrajectoryRequest
 from spot_msgs.srv import HandPose, HandPoseResponse, HandPoseRequest
-from spot_msgs.srv import GetLocalizationState, GetLocalizationStateResponse
-
+from spot_msgs.srv import LocalizeInGraph, LocalizeInGraphResponse
 from .ros_helpers import *
 from .spot_wrapper import SpotWrapper
 
@@ -397,6 +396,11 @@ class SpotROS():
         resp.waypoint_ids = object_ids
         return resp
 
+    def handle_localize_in_graph(self, req):
+        success, message = self.spot_wrapper.localize_in_graph(req.upload_path, initial_localization_fiducial=req.initial_localization_fiducial,
+                                            initial_localization_waypoint=req.initial_localization_waypoint)
+        return LocalizeInGraphResponse(success=success, message=message)
+
     def handle_get_tagged_object_pose(self, req):
         resp = self.spot_wrapper.get_object_pose(req.id)
         if (resp[0]):
@@ -562,10 +566,6 @@ class SpotROS():
         mobility_params = self.spot_wrapper.get_mobility_params()
         mobility_params.body_control.CopyFrom(body_control)
         self.spot_wrapper.set_mobility_params(mobility_params)
-
-    def handle_get_localization_state(self, req):
-        resp = self.spot_wrapper.get_localization_state(req)
-        return GetLocalizationStateResponse(resp)
 
     def handle_list_graph(self, upload_path):
         """ROS service handler for listing graph_nav waypoint_ids"""
@@ -825,7 +825,7 @@ class SpotROS():
 
             rospy.Service("list_tagged_objects", ListTaggedObjects, self.handle_list_tagged_objects)
             rospy.Service("get_object_pose", GetObjectPose, self.handle_get_tagged_object_pose)
-            rospy.Service("get_localization_state", GetLocalizationState, self.handle_get_localization_state)
+            rospy.Service("localize_in_graph", LocalizeInGraph, self.handle_localize_in_graph)
             rospy.Service("list_graph", ListGraph, self.handle_list_graph)
 
             # Arm Services #########################################
