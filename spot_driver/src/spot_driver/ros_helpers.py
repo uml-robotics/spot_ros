@@ -313,8 +313,8 @@ def GetLocalizationFromState(state, spot_wrapper):
         return localization_msg
     localization_msg.waypoint_id = state.localization.waypoint_id
     localization_msg.waypoint_tform_body.pose = toROSPose(state.localization.waypoint_tform_body)
-    localization_msg.seed_tform_body = toROSPose(state.localization.waypoint_tform_body)
-    local_time = spot_wrapper.robotToLocalTime(state.kinematic_state.acquisition_timestamp)
+    localization_msg.seed_tform_body.pose = toROSPose(state.localization.waypoint_tform_body)
+    local_time = spot_wrapper.robotToLocalTime(state.localization.timestamp)
     localization_msg.timestamp = rospy.Time(local_time.seconds, local_time.nanos)
     return localization_msg
 
@@ -504,7 +504,7 @@ def toROSPose(state):
     p.position.y = state.position.y
     p.position.z = state.position.z
     p.orientation.x = state.rotation.x
-    p.orientation.y = state.orientation.y
-    p.orientation.z = state.orientation.z
-    p.orientation.w = state.orientation.w
+    p.orientation.y = state.rotation.y
+    p.orientation.z = state.rotation.z
+    p.orientation.w = state.rotation.w
     return p

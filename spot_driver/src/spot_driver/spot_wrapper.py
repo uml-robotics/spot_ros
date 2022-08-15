@@ -93,7 +93,6 @@ class AsyncLocalizationState(AsyncPeriodicQuery):
         self._callback = None
         if rate > 0.0:
             self._callback = callback
-        rospy.loginfo("initializing localization state yo!")
 
     def _start_query(self):
         if self._callback:
