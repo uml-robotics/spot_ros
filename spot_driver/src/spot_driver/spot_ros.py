@@ -576,8 +576,11 @@ class SpotROS():
         """Thread function to send navigate_to feedback"""
         while not rospy.is_shutdown() and self.run_navigate_to:
             localization_state = self.spot_wrapper._graph_nav_client.get_localization_state()
+            feedback = self.spot_wrapper._graph_nav_client.navigation_feedback()
+
             if localization_state.localization.waypoint_id:
-                self.navigate_as.publish_feedback(NavigateToFeedback(localization_state.localization.waypoint_id))
+                self.navigate_as.publish_feedback(NavigateToFeedback(waypoint_id=localization_state.localization.waypoint_id,
+                                                                     status=feedback.status))
             rospy.Rate(10).sleep()
 
 
