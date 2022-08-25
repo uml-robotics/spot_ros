@@ -5,7 +5,7 @@ from tf2_msgs.msg import TFMessage
 from geometry_msgs.msg import TransformStamped
 from sensor_msgs.msg import Image, CameraInfo
 from sensor_msgs.msg import JointState
-from geometry_msgs.msg import PoseWithCovariance
+from geometry_msgs.msg import Pose, PoseWithCovariance
 from geometry_msgs.msg import TwistWithCovariance
 from geometry_msgs.msg import TwistWithCovarianceStamped
 from nav_msgs.msg import Odometry
@@ -16,13 +16,15 @@ from spot_msgs.msg import FootState, FootStateArray
 from spot_msgs.msg import EStopState, EStopStateArray
 from spot_msgs.msg import WiFiState
 from spot_msgs.msg import PowerState
+from spot_msgs.msg import ManipulatorState
 from spot_msgs.msg import BehaviorFault, BehaviorFaultState
 from spot_msgs.msg import SystemFault, SystemFaultState
 from spot_msgs.msg import BatteryState, BatteryStateArray
-
+from spot_msgs.msg import LocalizationState
 from bosdyn.api import image_pb2
-from bosdyn.client.math_helpers import SE3Pose
+from bosdyn.client.math_helpers import SE3Pose, SE3Velocity, Vec3
 from bosdyn.client.frame_helpers import get_odom_tform_body, get_vision_tform_body
+from std_msgs.msg import Bool
 
 friendly_joint_names = {}
 """Dictionary for mapping BD joint names to more friendly names"""
@@ -38,6 +40,16 @@ friendly_joint_names["hl.kn"] = "rear_left_knee"
 friendly_joint_names["hr.hx"] = "rear_right_hip_x"
 friendly_joint_names["hr.hy"] = "rear_right_hip_y"
 friendly_joint_names["hr.kn"] = "rear_right_knee"
+
+# Arm joint names
+friendly_joint_names["arm0.sh0"] = "Joint1"
+friendly_joint_names["arm0.sh1"] = "Joint2"
+friendly_joint_names["arm0.el0"] = "Joint3"
+friendly_joint_names["arm0.el1"] = "Joint4"
+friendly_joint_names["arm0.wr0"] = "Joint5"
+friendly_joint_names["arm0.wr1"] = "Joint6"
+friendly_joint_names["arm0.f1x"] = "Joint7"
+
 
 class DefaultCameraInfo(CameraInfo):
     """Blank class extending CameraInfo ROS topic that defaults most parameters"""
@@ -190,6 +202,7 @@ def GetJointStatesFromState(state, spot_wrapper):
     joint_state = JointState()
     local_time = spot_wrapper.robotToLocalTime(state.kinematic_state.acquisition_timestamp)
     joint_state.header.stamp = rospy.Time(local_time.seconds, local_time.nanos)
+
     for joint in state.kinematic_state.joint_states:
         joint_state.name.append(friendly_joint_names.get(joint.name, "ERROR"))
         joint_state.position.append(joint.position.value)
@@ -293,6 +306,18 @@ def GetOdomFromState(state, spot_wrapper, use_vision=True):
     odom_msg.twist = twist_odom_msg
     return odom_msg
 
+def GetLocalizationFromState(state, spot_wrapper):
+    localization_msg = LocalizationState()
+    if not state.localization.waypoint_id:
+        localization_msg.is_localized = False
+        return localization_msg
+    localization_msg.waypoint_id = state.localization.waypoint_id
+    localization_msg.waypoint_tform_body.pose = toROSPose(state.localization.waypoint_tform_body)
+    localization_msg.seed_tform_body.pose = toROSPose(state.localization.waypoint_tform_body)
+    local_time = spot_wrapper.robotToLocalTime(state.localization.timestamp)
+    localization_msg.timestamp = rospy.Time(local_time.seconds, local_time.nanos)
+    return localization_msg
+
 def GetWifiFromState(state, spot_wrapper):
     """Maps wireless state data from robot state proto to ROS WiFiState message
 
@@ -323,6 +348,7 @@ def GetTFFromState(state, spot_wrapper, inverse_target_frame):
     tf_msg = TFMessage()
 
     for frame_name in state.kinematic_state.transforms_snapshot.child_to_parent_edge_map:
+        # rospy.loginfo(frame_name)
         if state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get(frame_name).parent_frame_name:
             try:
                 transform = state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get(frame_name)
@@ -370,7 +396,7 @@ def GetPowerStatesFromState(state, spot_wrapper):
     """Maps power state data from robot state proto to ROS PowerState message
 
     Args:
-        data: Robot State proto
+        state: Robot State proto
         spot_wrapper: A SpotWrapper object
     Returns:
         PowerState message
@@ -383,6 +409,16 @@ def GetPowerStatesFromState(state, spot_wrapper):
     power_state_msg.locomotion_charge_percentage = state.power_state.locomotion_charge_percentage.value
     power_state_msg.locomotion_estimated_runtime = rospy.Time(state.power_state.locomotion_estimated_runtime.seconds, state.power_state.locomotion_estimated_runtime.nanos)
     return power_state_msg
+
+def GetManipulatorStateFromState(state, spot_wrapper):
+    msg = ManipulatorState()
+    msg.gripper_open_percentage = state.manipulator_state.gripper_open_percentage
+    msg.is_gripper_holding_item = state.manipulator_state.is_gripper_holding_item
+    msg.estimated_end_effector_force_in_hand = Vec3.from_proto(state.manipulator_state.estimated_end_effector_force_in_hand)
+    msg.stow_state = state.manipulator_state.stow_state
+    msg.velocity_of_hand_in_vision = SE3Velocity.from_proto(state.manipulator_state.velocity_of_hand_in_vision)
+    msg.velocity_of_hand_in_odom = SE3Velocity.from_proto(state.manipulator_state.velocity_of_hand_in_odom)
+    return msg
 
 def getBehaviorFaults(behavior_faults, spot_wrapper):
     """Helper function to strip out behavior faults into a list
@@ -461,3 +497,14 @@ def getBehaviorFaultsFromState(state, spot_wrapper):
     behavior_fault_state_msg = BehaviorFaultState()
     behavior_fault_state_msg.faults = getBehaviorFaults(state.behavior_fault_state.faults, spot_wrapper)
     return behavior_fault_state_msg
+
+def toROSPose(state):
+    p = Pose()
+    p.position.x = state.position.x
+    p.position.y = state.position.y
+    p.position.z = state.position.z
+    p.orientation.x = state.rotation.x
+    p.orientation.y = state.rotation.y
+    p.orientation.z = state.rotation.z
+    p.orientation.w = state.rotation.w
+    return p

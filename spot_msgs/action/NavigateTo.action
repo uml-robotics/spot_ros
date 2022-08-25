@@ -6,5 +6,6 @@ string initial_localization_waypoint # Waypoint id to trigger localization
 bool success   # indicate successful run of triggered service
 string message # informational, e.g. for error messages
 ---
+int32 status
 string waypoint_id
 

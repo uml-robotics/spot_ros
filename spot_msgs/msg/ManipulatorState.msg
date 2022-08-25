@@ -1,0 +1,10 @@
+uint8 STOWSTATE_UNKNOWN = 0
+uint8 STOWSTATE_STOWED = 1
+uint8 STOWSTATE_DEPLOYED = 2
+
+float32 gripper_open_percentage
+bool is_gripper_holding_item
+geometry_msgs/Vector3 estimated_end_effector_force_in_hand
+uint8 stow_state
+geometry_msgs/Twist velocity_of_hand_in_vision
+geometry_msgs/Twist velocity_of_hand_in_odom
