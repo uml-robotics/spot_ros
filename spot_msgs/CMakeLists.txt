@@ -30,7 +30,9 @@ add_message_files(
   FootState.msg
   Lease.msg
   LeaseResource.msg
+  LocalizationState.msg
   PowerState.msg
+  ManipulatorState.msg
   SystemFaultState.msg
 )
 
@@ -40,12 +42,22 @@ add_service_files(
   SetLocomotion.srv
   SetVelocity.srv
   ClearBehaviorFault.srv
+  ListTaggedObjects.srv
+  GetObjectPose.srv
+  ArmJointMovement.srv
+  ConstrainedArmJointMovement.srv
+  GripperAngleMove.srv
+  ArmForceTrajectory.srv
+  HandPose.srv
+  LocalizeInGraph.srv
+  DockRobot.srv
 )
 
 add_action_files(
   FILES
   NavigateTo.action
   Trajectory.action
+  GripperAngle.action
 )
 
 generate_messages(

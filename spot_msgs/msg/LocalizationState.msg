@@ -1,0 +1,5 @@
+bool is_localized
+string waypoint_id
+geometry_msgs/PoseStamped waypoint_tform_body
+geometry_msgs/PoseStamped seed_tform_body
+time timestamp

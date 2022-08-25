@@ -1,0 +1,5 @@
+float64 gripper_angle
+---
+bool success
+---
+float64 percent_completes
