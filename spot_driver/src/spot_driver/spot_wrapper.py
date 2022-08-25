@@ -859,10 +859,10 @@ class SpotWrapper():
            initial_localization_waypoint : Waypoint id string of current robot position (optional)
         """
         # Filepath for uploading a saved graph's and snapshots too.
-        self.localize_in_graph(upload_path, initial_localization_fiducial=initial_localization_fiducial,
-                               initial_localization_waypoint=initial_localization_waypoint)
-        self._list_graph_waypoint_and_edge_ids()
-        self._get_localization_state()
+        # self.localize_in_graph(upload_path, initial_localization_fiducial=initial_localization_fiducial,
+        #                        initial_localization_waypoint=initial_localization_waypoint)
+        # self._list_graph_waypoint_and_edge_ids()
+        # self._get_localization_state()
         resp = self._navigate_to([navigate_to])
 
         return resp
@@ -1206,12 +1206,12 @@ class SpotWrapper():
             else:
                 # Move the arm to a spot in front of the robot given a pose for the gripper.
                 # Build a position to move the arm to (in meters, relative to the body frame origin.)
-                x, y, z, qw, qx, qy, qz = pose_points
+                x, y, z, qx, qy, qz, qw = pose_points
                 position = geometry_pb2.Vec3(x=x, y=y, z=z)
                 rotation = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
                 rospy.loginfo(position)
                 rospy.loginfo(rotation)
-                seconds = 15.0
+                seconds = 6.0
                 duration = seconds_to_duration(seconds)
                 rospy.loginfo("aight, we aboutta make the hand pose now")
                 # Build the SE(3) pose of the desired hand position in the moving body frame.
@@ -1472,6 +1472,7 @@ class SpotWrapper():
         if not destination_waypoint:
             # Failed to find the appropriate unique waypoint id for the navigation command.
             return
+        rospy.loginfo("Naivgating to waypoint {}".format(destination_waypoint))
         if not self.toggle_power(should_power_on=True):
             self._logger.info("Failed to power on the robot, and cannot complete navigate to request.")
             return
