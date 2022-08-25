@@ -50,6 +50,7 @@ add_service_files(
   ArmForceTrajectory.srv
   HandPose.srv
   LocalizeInGraph.srv
+  DockRobot.srv
 )
 
 add_action_files(

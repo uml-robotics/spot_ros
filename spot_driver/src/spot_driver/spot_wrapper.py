@@ -624,12 +624,13 @@ class SpotWrapper():
             return False, "Undocking failed"
         return True, "Undocking Succeeded"
 
-    def dock(self):
+    def dock(self, dock_id=520):
         try:
             # make sure we're powered on and standing
+            rospy.loginfo("docking at id {}".format(dock_id))
             self._robot.power_on()
             robot_command.blocking_stand(self._robot_command_client)
-            blocking_dock_robot(self._robot, 520)
+            blocking_dock_robot(self._robot, int(dock_id))
         except CommandFailedError:
             return False, "Docking failed"
         return True, "Docking Succeeded!"
@@ -661,13 +662,13 @@ class SpotWrapper():
         tagged_object_ids = []
         for world_obj in world_objects:
             tagged_object_ids.append(
-                str(world_obj.apriltag_properties.frame_name_fiducial.split('_')[1]) + '*' + str(world_obj.id))
+                str(world_obj.apriltag_properties.frame_name_fiducial.split('_')[1]))
         return tagged_object_ids
 
     def get_object_pose(self, id):
         world_objects = self._world_object_client.list_world_objects().world_objects
         for world_object in world_objects:
-            if id == str(world_object.id):
+            if id == str(world_object.id) or id ==  str(world_object.apriltag_properties.frame_name_fiducial.split('_')[1]):
                 # Get the transform snapshot for the world object
                 snapshot = world_object.transforms_snapshot
                 # Get the frame name for the fiducial of the object

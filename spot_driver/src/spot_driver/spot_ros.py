@@ -44,6 +44,7 @@ from spot_msgs.srv import GripperAngleMove, GripperAngleMoveResponse, GripperAng
 from spot_msgs.srv import ArmForceTrajectory, ArmForceTrajectoryResponse, ArmForceTrajectoryRequest
 from spot_msgs.srv import HandPose, HandPoseResponse, HandPoseRequest
 from spot_msgs.srv import LocalizeInGraph, LocalizeInGraphResponse
+from spot_msgs.srv import DockRobot, DockRobotResponse
 from .ros_helpers import *
 from .spot_wrapper import SpotWrapper
 
@@ -312,8 +313,8 @@ class SpotROS():
         return TriggerResponse(resp[0], resp[1])
 
     def handle_dock(self, req):
-        resp = self.spot_wrapper.dock()
-        return TriggerResponse(resp[0], resp[1])
+        resp = self.spot_wrapper.dock(dock_id=int(req.id))
+        return DockRobotResponse(resp[0], resp[1])
 
     def handle_undock(self, req):
         resp = self.spot_wrapper.undock()
@@ -404,7 +405,7 @@ class SpotROS():
     def handle_get_tagged_object_pose(self, req):
         resp = self.spot_wrapper.get_object_pose(req.id)
         if (resp[0]):
-            # convert SE2 Pose to pose (move to helper function plz future jacob)
+            # convert SE3 Pose to pose (move to helper function plz future jacob)
             p = PoseStamped()
             p.header.frame_id = "odom"
             print(resp[1])
@@ -420,63 +421,6 @@ class SpotROS():
         r.success = False
         r.message = "Unable to find object with fiducial ID " + req.id
         return r
-
-    def handle_body_pose(self, req):
-        if req.target_pose.header.frame_id != 'odom':
-            self.trajectory_server.set_aborted(TrajectoryResult(False, 'frame_id of target_pose must be \'odom\''))
-            return
-        if req.duration.data.to_sec() <= 0:
-            self.trajectory_server.set_aborted(TrajectoryResult(False, 'duration must be larger than 0'))
-            return
-        cmd_duration = rospy.Duration(req.duration.data.secs, req.duration.data.nsecs)
-        resp = self.spot_wrapper.body_pose_cmd(
-            goal_z=req.target_pose.pose.position.z,
-            goal_rotation=math_helpers.Quat(
-                w=req.target_pose.pose.orientation.w,
-                x=req.target_pose.pose.orientation.x,
-                y=req.target_pose.pose.orientation.y,
-                z=req.target_pose.pose.orientation.z
-            ),
-            cmd_duration=cmd_duration.to_sec(),
-            precise_position=req.precise_positioning
-        )
-
-        def timeout_cb(trajectory_server, _):
-            trajectory_server.publish_feedback(TrajectoryFeedback("Failed to reach goal, timed out"))
-            trajectory_server.set_aborted(TrajectoryResult(False, "Failed to reach goal, timed out"))
-
-        # Abort the actionserver if cmd_duration is exceeded - the driver stops but does not provide feedback to
-        # indicate this so we monitor it ourselves
-        cmd_timeout = rospy.Timer(cmd_duration, functools.partial(timeout_cb, self.trajectory_server), oneshot=True)
-
-        # The trajectory command is non-blocking but we need to keep this function up in order to interrupt if a
-        # preempt is requested and to return success if/when the robot reaches the goal. Also check the is_active to
-        # monitor whether the timeout_cb has already aborted the command
-        rate = rospy.Rate(10)
-        while not rospy.is_shutdown() and not self.trajectory_server.is_preempt_requested() and not self.spot_wrapper.at_goal and self.trajectory_server.is_active():
-            if self.spot_wrapper.near_goal:
-                if self.spot_wrapper._last_trajectory_command_precise:
-                    self.trajectory_server.publish_feedback(TrajectoryFeedback("Near goal, performing final adjustments"))
-                else:
-                    self.trajectory_server.publish_feedback(TrajectoryFeedback("Near goal"))
-            else:
-                self.trajectory_server.publish_feedback(TrajectoryFeedback("Moving to goal"))
-            rate.sleep()
-
-        # If still active after exiting the loop, the command did not time out
-        if self.trajectory_server.is_active():
-            cmd_timeout.shutdown()
-            if self.trajectory_server.is_preempt_requested():
-                self.trajectory_server.publish_feedback(TrajectoryFeedback("Preempted"))
-                self.trajectory_server.set_preempted()
-                self.spot_wrapper.stop()
-
-            if self.spot_wrapper.at_goal:
-                self.trajectory_server.publish_feedback(TrajectoryFeedback("Reached goal"))
-                self.trajectory_server.set_succeeded(TrajectoryResult(resp[0], resp[1]))
-            else:
-                self.trajectory_server.publish_feedback(TrajectoryFeedback("Failed to reach goal"))
-                self.trajectory_server.set_aborted(TrajectoryResult(False, "Failed to reach goal"))
 
     def handle_trajectory(self, req):
         """ROS actionserver execution handler to handle receiving a request to move to a location"""
@@ -812,7 +756,7 @@ class SpotROS():
             rospy.Service("self_right", Trigger, self.handle_self_right)
             rospy.Service("sit", Trigger, self.handle_sit)
             rospy.Service("stand", Trigger, self.handle_stand)
-            rospy.Service("dock", Trigger, self.handle_dock)
+            rospy.Service("dock", DockRobot, self.handle_dock)
             rospy.Service("undock", Trigger, self.handle_undock)
             rospy.Service("power_on", Trigger, self.handle_power_on)
             rospy.Service("power_off", Trigger, self.handle_safe_power_off)
@@ -844,8 +788,7 @@ class SpotROS():
             rospy.Service("gripper_pose", HandPose, self.handle_hand_pose)
             #########################################################
 
-            self.body_pose_as = actionlib.SimpleActionServer('body_pose', TrajectoryAction, execute_cb = self.handle_body_pose, auto_start=False)
-            self.body_pose_as.start()
+
             self.navigate_as = actionlib.SimpleActionServer('navigate_to', NavigateToAction,
                                                             execute_cb = self.handle_navigate_to,
                                                             auto_start = False)
