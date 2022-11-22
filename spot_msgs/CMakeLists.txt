@@ -58,6 +58,7 @@ add_action_files(
   NavigateTo.action
   Trajectory.action
   GripperAngle.action
+  WalkToObject.action
 )
 
 generate_messages(

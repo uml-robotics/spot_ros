@@ -324,6 +324,7 @@ class SpotWrapper():
                 self._world_object_client = self._robot.ensure_client(WorldObjectClient.default_service_name)
                 self._power_client = self._robot.ensure_client(PowerClient.default_service_name)
                 self._lease_client = self._robot.ensure_client(LeaseClient.default_service_name)
+                self._manipulation_api_client = self._robot.ensure_client(ManipulationApiClient.default_service_name)
                 self._lease_wallet = self._lease_client.lease_wallet
                 self._image_client = self._robot.ensure_client(ImageClient.default_service_name)
                 self._estop_client = self._robot.ensure_client(EstopClient.default_service_name)
@@ -1275,9 +1276,12 @@ class SpotWrapper():
 
         return True, "Moved arm successfully"
 
-    def walk_to_object_image(self, object_point):
+    def walk_to_object_image(self, object_point, camera_name="frontright_fisheye"):
         print("In wrapper")
         print(object_point)
+        self.manipulation_feedback_state_name = ""
+        self.manipulation_feedback_state_val = 0
+        self.manipulation_feedback_current_goal = math_helpers.SE3Pose(x=0, y=0, z=0, rot=math_helpers.Quat(w=1,x=0,y=0,z=0))
 
         try:
             success, msg = self.ensure_arm_power_and_stand()
@@ -1287,36 +1291,52 @@ class SpotWrapper():
                 return False, msg
             else:
                 walk_vec = geometry_pb2.Vec2(x=object_point[0], y=object_point[1])
-                manipulation_api_client = self._robot.ensure_client(ManipulationApiClient.default_service_name)
-                print("manipulation_api_client")
+                #manipulation_api_client = self._robot.ensure_client(ManipulationApiClient.default_service_name)
+                #print("created manipulation_api client")
 
-                data = self.front_images
-                image_used = data[1]
+                #data = self.front_images
+                #image_used = data[1]
+                #add stuff for other cameras here
+                #data = self._image_client.get_image_from_sources([camera_name]) #stalling here? why??
+                #image_used = data[0]
 
-                offset_distance = None
+                if "front" in camera_name:
+                    data = self.front_images
+                elif "back" in camera_name:
+                    data = self.rear_images
+                else:
+                    data = self.side_images
+                
+                if "right" in camera_name:
+                    image_used = data[1]
+                else:
+                    image_used = data[0]
+
+                #offset_distance = None
 
                 # Build proto
+                print("Building proto")
                 walk_to = manipulation_api_pb2.WalkToObjectInImage(
                     pixel_xy=walk_vec, transforms_snapshot_for_camera=image_used.shot.transforms_snapshot,
                     frame_name_image_sensor=image_used.shot.frame_name_image_sensor,
-                    camera_model=image_used.source.pinhole, offset_distance=offset_distance)
+                    camera_model=image_used.source.pinhole)
 
                 print("Built proto")
 
-                # Ask Spot to pick up the object
+                # Ask Spot to walk to the object
                 walk_to_request = manipulation_api_pb2.ManipulationApiRequest(
                     walk_to_object_in_image=walk_to)
 
-                print("Walk to request")
+                print("sending request")
 
                 # Send the request
-                cmd_response = manipulation_api_client.manipulation_api_command(
-                    manipulation_api_request=walk_to_request)
+                cmd_response = self._manipulation_api_client.manipulation_api_command(
+                    manipulation_api_request=walk_to_request) #bosdyn.api.ManipulationApiResponse (Lease Use Error)
 
                 print("Sent request")
 
                 # Get feedback from robot
-                while True:
+                while True: #This is literally in the same thread as spot_ros so no feedback is actually going through XD?
                     time.sleep(0.25)
                     feedback_request = manipulation_api_pb2.ManipulationApiFeedbackRequest(
                         manipulation_cmd_id=cmd_response.manipulation_cmd_id)
@@ -1324,22 +1344,30 @@ class SpotWrapper():
                     print("Feedback request")
 
                     # Send the request
-                    response = manipulation_api_client.manipulation_api_feedback_command(
+                    response = self._manipulation_api_client.manipulation_api_feedback_command(
                         manipulation_api_feedback_request=feedback_request)
 
+                    #maybe set cap on certain messages to avoid infinite loops
+                    #how to send kill message?
                     print("Feedback response")
 
+                    #why is current_state always 1 (Success/finished)?
                     print('Current state: ',
                           manipulation_api_pb2.ManipulationFeedbackState.Name(response.current_state))
+                    self.manipulation_feedback_state_name = manipulation_api_pb2.ManipulationFeedbackState.Name(response.current_state)
+                    self.manipulation_feedback_state_val = response.current_state
+                    self.manipulation_feedback_current_goal = get_a_tform_b(response.transforms_snapshot_manipulation_data, BODY_FRAME_NAME, "walkto_raycast_intersection")
 
-                    if response.current_state == manipulation_api_pb2.MANIP_STATE_DONE:
+                    if response.current_state == manipulation_api_pb2.MANIP_STATE_DONE: #look into this
                         break
 
                 self._logger.info('Finished')
-                time.sleep(4.0)
-
-        finally:
-            print("done")
+        except Exception as e:
+            print(e)
+        #how to know whether pass/fail/abort
+        #finally:
+        #print("done")
+        #return True
 
     ###################################################################
 

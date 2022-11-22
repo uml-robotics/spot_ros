@@ -7,3 +7,12 @@
     </description>
   </class>
 </library>
+<library path="lib/libspot_viz">
+    <class name="spot_viz/CameraNavUI"
+         type="spot_viz::CameraNavUI"
+         base_class_type="rviz::Panel">
+    <description>
+      A UI for image based commands
+    </description>
+  </class>
+</library>

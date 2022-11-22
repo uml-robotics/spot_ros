@@ -33,6 +33,7 @@ from spot_msgs.msg import MobilityParams
 from spot_msgs.msg import NavigateToAction, NavigateToResult, NavigateToFeedback
 from spot_msgs.msg import TrajectoryAction, TrajectoryResult, TrajectoryFeedback
 from spot_msgs.msg import GripperAngleAction, GripperAngleResult
+from spot_msgs.msg import WalkToObjectAction, WalkToObjectResult, WalkToObjectFeedback
 from spot_msgs.srv import ListGraph, ListGraphResponse
 from spot_msgs.srv import SetLocomotion, SetLocomotionResponse
 from spot_msgs.srv import ClearBehaviorFault, ClearBehaviorFaultResponse
@@ -482,6 +483,39 @@ class SpotROS():
                 self.trajectory_server.publish_feedback(TrajectoryFeedback("Failed to reach goal"))
                 self.trajectory_server.set_aborted(TrajectoryResult(False, "Failed to reach goal"))
 
+    def handle_walk_to_object(self, req):
+        '''ROS actionserver execution handler for request to move to an object'''
+        response = self.spot_wrapper.walk_to_object_image(
+            object_point=(req.x, req.y),
+            camera_name=req.camera_name
+        )
+        
+        rate = rospy.Rate(4)
+        while not rospy.is_shutdown() and self.spot_wrapper.manipulation_feedback_state_val != 1:
+            if self.walk_to_object_server.is_preempt_requested():
+                rospy.loginfo("Walk to Object Action: Preempted")
+                self.spot_wrapper.stand()
+                self.spot_wrapper.arm_carry()
+                self.walk_to_object_server.set_preempted()
+                response = False
+                break
+            
+            current_goal = self.spot_wrapper.manipulation_feedback_current_goal
+            feedback_goal = Pose()
+            feedback_goal.position.x = current_goal.x
+            feedback_goal.position.y = current_goal.y
+            feedback_goal.position.z = current_goal.z
+            feedback_goal.orientation.w = current_goal.rot.w
+            feedback_goal.orientation.x = current_goal.rot.x
+            feedback_goal.orientation.y = current_goal.rot.y
+            feedback_goal.orientation.z = current_goal.rot.z
+
+            self.walk_to_object_server.publish_feedback(WalkToObjectFeedback(self.spot_wrapper.manipulation_feedback_state_name, feedback_goal))
+            rate.sleep()
+
+        res = WalkToObjectResult(response)
+        return res
+
     def handle_gripper_move(self, req):
         resp = self.spot_wrapper.gripper_angle_open(req.gripper_angle)
         if resp[0]:
@@ -629,13 +663,13 @@ class SpotROS():
         resp = self.spot_wrapper.hand_pose(pose_points = srv_data.pose_point, wrist_tform_tool=srv_data.wrist_tform_tool)
         return HandPoseResponse(resp[0], resp[1])
     
-    def walk_to_obj_callback(self, obj_point):
+    def walk_to_obj_callback(self, obj_point, camera_name="frontright_fisheye"):
         """Callback for pixel points, object to walk"""
         rospy.loginfo("Pixel for location to walk to: " + str(obj_point))
         the_click = []
         the_click.append(obj_point.pixel_pose[0])
         the_click.append(obj_point.pixel_pose[1])
-        self.spot_wrapper.walk_to_object_image(object_point = the_click)
+        self.spot_wrapper.walk_to_object_image(object_point = the_click, camera_name = camera_name)
 
 
     ##################################################################
@@ -799,6 +833,10 @@ class SpotROS():
                                                                   execute_cb=self.handle_trajectory,
                                                                   auto_start=False)
             self.trajectory_server.start()
+            self.walk_to_object_server = actionlib.SimpleActionServer('walk_to_object', WalkToObjectAction,
+                                                                    execute_cb=self.handle_walk_to_object,
+                                                                    auto_start=False)
+            self.walk_to_object_server.start()
 
             rospy.on_shutdown(self.shutdown)
 
