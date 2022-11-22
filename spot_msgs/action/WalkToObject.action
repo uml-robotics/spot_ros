@@ -1,0 +1,8 @@
+float64 x
+float64 y
+string camera_name
+---
+bool success
+---
+string feedback_name
+geometry_msgs/Pose current_goal
