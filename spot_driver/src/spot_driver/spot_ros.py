@@ -11,7 +11,7 @@ from geometry_msgs.msg import TwistWithCovarianceStamped, Twist, PoseStamped, Po
 from nav_msgs.msg import Odometry
 
 from bosdyn.api.spot import robot_command_pb2 as spot_command_pb2
-from bosdyn.api import geometry_pb2, trajectory_pb2
+from bosdyn.api import geometry_pb2, trajectory_pb2, manipulation_api_pb2
 from bosdyn.api.geometry_pb2 import Quaternion, SE2VelocityLimit
 from bosdyn.client import math_helpers
 import actionlib
@@ -492,6 +492,9 @@ class SpotROS():
         
         rate = rospy.Rate(4)
         while not rospy.is_shutdown() and self.spot_wrapper.manipulation_feedback_state_val != 1:
+            feedback = self.spot_wrapper.walk_to_object_feedback(response)
+            if feedback.val == 1:
+                break
             if self.walk_to_object_server.is_preempt_requested():
                 rospy.loginfo("Walk to Object Action: Preempted")
                 self.spot_wrapper.stand()
@@ -499,8 +502,8 @@ class SpotROS():
                 self.walk_to_object_server.set_preempted()
                 response = False
                 break
-            
-            current_goal = self.spot_wrapper.manipulation_feedback_current_goal
+
+            current_goal = feedback.goal
             feedback_goal = Pose()
             feedback_goal.position.x = current_goal.x
             feedback_goal.position.y = current_goal.y
@@ -510,7 +513,7 @@ class SpotROS():
             feedback_goal.orientation.y = current_goal.rot.y
             feedback_goal.orientation.z = current_goal.rot.z
 
-            self.walk_to_object_server.publish_feedback(WalkToObjectFeedback(self.spot_wrapper.manipulation_feedback_state_name, feedback_goal))
+            self.walk_to_object_server.publish_feedback(WalkToObjectFeedback(feedback.name, feedback_goal))
             rate.sleep()
 
         res = WalkToObjectResult(response)

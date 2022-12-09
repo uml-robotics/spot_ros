@@ -1335,6 +1335,9 @@ class SpotWrapper():
 
                 print("Sent request")
 
+                return cmd_response
+
+                # This while loop seems to block thread so returning early. Logic of loop moved to function elsewhere.
                 # Get feedback from robot
                 while True: #This is literally in the same thread as spot_ros so no feedback is actually going through XD?
                     time.sleep(0.25)
@@ -1368,6 +1371,19 @@ class SpotWrapper():
         #finally:
         #print("done")
         #return True
+
+    def walk_to_object_feedback(self, cmd_response: manipulation_api_pb2.ManipulationApiResponse):
+        feedback_request = manipulation_api_pb2.ManipulationApiFeedbackRequest(
+            manipulation_cmd_id=cmd_response.manipulation_cmd_id)
+
+        response = self._manipulation_api_client.manipulation_api_feedback_command(
+            manipulation_api_feedback_request=feedback_request)
+
+        return {
+            "name": manipulation_api_pb2.ManipulationFeedbackState.Name(response.current_state),
+            "val": response.current_state,
+            "current_goal": get_a_tform_b(response.transforms_snapshot_manipulation_data, BODY_FRAME_NAME, "walkto_raycast_intersection")
+        }
 
     ###################################################################
 
