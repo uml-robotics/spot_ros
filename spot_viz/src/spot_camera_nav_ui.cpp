@@ -99,6 +99,7 @@ void CameraNavUI::imageCB(const sensor_msgs::Image::ConstPtr& msg){
         encoding = QImage::Format_RGB888;
     }
     QImage image(&(msg->data[0]), msg->width, msg->height, msg->step, encoding);
+    image = image.transformed(QMatrix().rotate(90.0));
     ROS_INFO("Image received with encoding %s.", msg->encoding.c_str());
     scaleFactor = static_cast<double>(image.width()) / imageLabel->width();
     QPixmap pixmap = QPixmap::fromImage(image).scaledToWidth(imageLabel->width());
@@ -112,7 +113,9 @@ void CameraNavUI::sendCommand(){
         Q_EMIT feedback("No camera selected");
         return;
     }
-    callWalkToObjectAction(*walkToObjectAction_, x, y, camera + "_fisheye");
+    int comp_x = y;
+    int comp_y = imageLabel->width() * scaleFactor - x;
+    callWalkToObjectAction(*walkToObjectAction_, comp_x, comp_y, camera + "_fisheye");
 }
 
 void CameraNavUI::stopCommand(){
