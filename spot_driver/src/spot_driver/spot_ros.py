@@ -490,8 +490,10 @@ class SpotROS():
             camera_name=req.camera_name
         )
         
+        success = True
         rate = rospy.Rate(4)
-        while not rospy.is_shutdown() and self.spot_wrapper.manipulation_feedback_state_val != 1:
+        while not rospy.is_shutdown():
+            #get feedback from wrapper using response from spot_wrapper.walk_to_object_image
             feedback = self.spot_wrapper.walk_to_object_feedback(response)
             if feedback.val == 1:
                 break
@@ -500,7 +502,7 @@ class SpotROS():
                 self.spot_wrapper.stand()
                 self.spot_wrapper.arm_carry()
                 self.walk_to_object_server.set_preempted()
-                response = False
+                success = False
                 break
 
             current_goal = feedback.goal
@@ -512,11 +514,12 @@ class SpotROS():
             feedback_goal.orientation.x = current_goal.rot.x
             feedback_goal.orientation.y = current_goal.rot.y
             feedback_goal.orientation.z = current_goal.rot.z
+            rospy.loginfo(feedback_goal)
 
             self.walk_to_object_server.publish_feedback(WalkToObjectFeedback(feedback.name, feedback_goal))
             rate.sleep()
 
-        res = WalkToObjectResult(response)
+        res = WalkToObjectResult(success)
         return res
 
     def handle_gripper_move(self, req):

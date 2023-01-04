@@ -99,7 +99,12 @@ void CameraNavUI::imageCB(const sensor_msgs::Image::ConstPtr& msg){
         encoding = QImage::Format_RGB888;
     }
     QImage image(&(msg->data[0]), msg->width, msg->height, msg->step, encoding);
-    image = image.transformed(QMatrix().rotate(90.0));
+    
+    //Rotate image if front camera
+    if(current_camera.rfind("front", 0) != std::string::npos){
+        image = image.transformed(QTransform().rotate(90.0)); //This rotation keeps the dimensions of the original image... How to fix?
+    }
+
     ROS_INFO("Image received with encoding %s.", msg->encoding.c_str());
     scaleFactor = static_cast<double>(image.width()) / imageLabel->width();
     QPixmap pixmap = QPixmap::fromImage(image).scaledToWidth(imageLabel->width());
@@ -113,9 +118,12 @@ void CameraNavUI::sendCommand(){
         Q_EMIT feedback("No camera selected");
         return;
     }
-    int comp_x = y;
-    int comp_y = imageLabel->width() * scaleFactor - x;
-    callWalkToObjectAction(*walkToObjectAction_, comp_x, comp_y, camera + "_fisheye");
+    if(current_camera.rfind("front", 0) != std::string::npos){
+        callWalkToObjectAction(*walkToObjectAction_, y, imageLabel->width() * scaleFactor - x, camera + "_fisheye");
+    }
+    else{
+        callWalkToObjectAction(*walkToObjectAction_, x, y, camera + "_fisheye");
+    }
 }
 
 void CameraNavUI::stopCommand(){
@@ -149,6 +157,7 @@ void CameraNavUI::switchCamera(const QString& text){
         return;
     }
     //subscribe to new camera topic
+    current_camera = text.toStdString();
     std::string topic = "spot/camera/" + text.toStdString() + "/image";
     Q_EMIT feedback("Subscribing to " + topic);
     imageSub_ = nh_.subscribe<sensor_msgs::Image>(topic, 1, &CameraNavUI::imageCB, this);

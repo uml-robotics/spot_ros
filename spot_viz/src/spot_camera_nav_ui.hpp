@@ -87,6 +87,7 @@ class CameraNavUI : public rviz::Panel
 
     int x, y;
     double scaleFactor; // img.width / imageLabel.width
+    std::string current_camera;
 };
 
 }
