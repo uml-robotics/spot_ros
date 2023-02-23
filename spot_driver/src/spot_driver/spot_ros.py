@@ -20,7 +20,7 @@ import functools
 import math
 import bosdyn.geometry
 import tf2_ros
-import tf2_geometry_msgs
+#import tf2_geometry_msgs
 
 from spot_msgs.msg import Metrics
 from spot_msgs.msg import LeaseArray, LeaseResource
@@ -593,8 +593,8 @@ class SpotROS:
             "body", pose.header.frame_id, rospy.Time()
         )
 
-        pose_in_body = tf2_geometry_msgs.do_transform_pose(pose, body_to_fixed)
-        pose_in_body.header.frame_id = "body"
+        #pose_in_body = tf2_geometry_msgs.do_transform_pose(pose, body_to_fixed)
+        #pose_in_body.header.frame_id = "body"
 
         return pose_in_body
 
